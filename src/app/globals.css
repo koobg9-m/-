@@ -1,0 +1,115 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;700&family=Gowun+Batang:wght@400;700&display=swap');
+
+@font-face {
+  font-family: 'HancomMalrangmalrang';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2406-1@1.0/HancomMalangMalang-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'HancomMalrangmalrang';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2406-1@1.0/HancomMalangMalang-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --page-max: 72rem;
+    --content-max: 42rem;
+    --radius-sm: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.25rem;
+    --radius-2xl: 1.5rem;
+    --mimi-primary: #B85C38;
+    --mimi-accent: #5B7A6B;
+    --mimi-charcoal: #1E2D2D;
+    --mimi-cream: #FAF8F5;
+    --shadow-card: 0 2px 8px -2px rgb(30 45 45 / 0.06), 0 4px 12px -4px rgb(30 45 45 / 0.04);
+    --shadow-card-hover: 0 8px 24px -4px rgb(30 45 45 / 0.08);
+    --shadow-elevated: 0 16px 40px -8px rgb(30 45 45 / 0.12);
+  }
+  body {
+    @apply text-mimi-charcoal bg-mimi-cream antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    letter-spacing: -0.01em;
+  }
+}
+
+@layer components {
+  .page-container {
+    @apply max-w-[var(--page-max)] mx-auto px-5 sm:px-8;
+  }
+  .content-container {
+    @apply max-w-[var(--content-max)] mx-auto;
+  }
+  .section-padding {
+    @apply py-20 md:py-28;
+  }
+  .card {
+    @apply bg-white rounded-2xl border border-stone-100 shadow-[var(--shadow-card)] transition-all duration-300;
+  }
+  .card-hover {
+    @apply hover:shadow-[var(--shadow-card-hover)] hover:border-stone-200/80 hover:-translate-y-0.5;
+  }
+  .btn-primary {
+    @apply px-6 py-3.5 bg-mimi-primary text-white rounded-xl font-semibold hover:bg-mimi-primaryDark transition-all duration-200 shadow-soft hover:shadow-elevated active:scale-[0.98];
+  }
+  .btn-secondary {
+    @apply px-6 py-3.5 bg-white text-mimi-primary border-2 border-mimi-primary rounded-xl font-semibold hover:bg-mimi-primary/5 transition-all duration-200;
+  }
+  .btn-accent {
+    @apply px-6 py-3.5 bg-mimi-accent text-white rounded-xl font-semibold hover:bg-mimi-accent/90 transition-all duration-200;
+  }
+  .section-title {
+    @apply text-2xl md:text-3xl lg:text-4xl font-bold text-mimi-charcoal tracking-tight;
+  }
+  .section-subtitle {
+    @apply text-mimi-slate mt-3 text-base md:text-lg;
+  }
+  .tab-btn {
+    @apply px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200;
+  }
+  .tab-btn-active {
+    @apply bg-mimi-primary text-white shadow-soft;
+  }
+  .tab-btn-inactive {
+    @apply bg-white text-mimi-slate hover:bg-stone-50 border border-stone-200;
+  }
+  .input-field {
+    @apply w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-mimi-primary focus:ring-2 focus:ring-mimi-primary/10 outline-none transition-colors;
+  }
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .font-malang-bold {
+    font-family: "HancomMalrangmalrang", cursive;
+    font-weight: 700;
+  }
+  .brand-name {
+    @apply font-brand font-bold tracking-[0.08em] relative inline-block;
+    background: linear-gradient(135deg, #B85C38 0%, #C9A962 50%, #B85C38 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+    filter: drop-shadow(0 1px 1px rgb(184 92 56 / 0.25));
+  }
+  .brand-name::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -2px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #B85C38, #C9A962, #B85C38, transparent);
+    opacity: 0.6;
+    border-radius: 1px;
+  }
+}

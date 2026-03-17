@@ -1,0 +1,453 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import AddressSearchInput from "@/components/common/AddressSearchInput";
+import type { CustomerProfile, Pet } from "@/lib/groomer-types";
+import type { BreedType, WeightTier } from "@/lib/services";
+import { getCustomerProfile } from "@/lib/customer-storage";
+import { getPetAge } from "@/lib/groomer-types";
+import { DOG_BREEDS, BREED_TYPES, WEIGHT_TIERS_SMALL, WEIGHT_TIERS_MEDIUM } from "@/lib/pet-options";
+import { SERVICE_DEFS, getServicePrice, getServicesForBreed, weightToTier } from "@/lib/services";
+
+type Props = {
+  onComplete: (profile: CustomerProfile) => void;
+  initialData?: Partial<CustomerProfile> | null;
+  submitLabel?: string;
+};
+
+const currentYear = new Date().getFullYear();
+const years = Array.from({ length: 20 }, (_, i) => currentYear - i);
+const months = Array.from({ length: 12 }, (_, i) => i + 1);
+
+export default function CustomerProfileForm({ onComplete, initialData, submitLabel = "저장하고 예약하기" }: Props) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [detailAddress, setDetailAddress] = useState("");
+  const [email, setEmail] = useState("");
+  const [pets, setPets] = useState<Pet[]>([]);
+  const [editingPet, setEditingPet] = useState<Pet | null>(null);
+  const [showPetForm, setShowPetForm] = useState(false);
+
+  useEffect(() => {
+    const saved = getCustomerProfile();
+    let loginData: { phone?: string; email?: string } = {};
+    try {
+      const login = typeof window !== "undefined" ? localStorage.getItem("mimi_demo_user") : null;
+      loginData = login ? JSON.parse(login) : {};
+    } catch {
+      // ignore
+    }
+    const src = initialData ?? saved;
+    setName(src?.name ?? "");
+    setPhone(src?.phone ?? loginData.phone ?? "");
+    setAddress(src?.address ?? "");
+    setDetailAddress(src?.detailAddress ?? "");
+    setEmail(src?.email ?? loginData.email ?? "");
+    setPets(src?.pets ?? []);
+  }, [initialData]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !phone.trim() || !address.trim()) return;
+    if (pets.length === 0) return; // 반려동물 1마리 이상 필요
+    onComplete({
+      name: name.trim(),
+      phone: phone.trim(),
+      address: address.trim(),
+      detailAddress: detailAddress.trim() || undefined,
+      email: email.trim() || undefined,
+      pets,
+    });
+  };
+
+  const addPet = (pet: Omit<Pet, "id" | "createdAt">) => {
+    const newPet: Pet = {
+      ...pet,
+      id: `P${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    };
+    setPets((prev) => [...prev, newPet]);
+    setEditingPet(null);
+    setShowPetForm(false);
+  };
+
+  const updatePet = (id: string, updates: Partial<Pet>) => {
+    setPets((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
+    setEditingPet(null);
+  };
+
+  const removePet = (id: string) => {
+    setPets((prev) => prev.filter((p) => p.id !== id));
+    setEditingPet(null);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <p className="text-gray-600">고객 정보와 반려동물을 등록해 주세요 (수정 가능)</p>
+
+      <div className="space-y-4">
+        <h3 className="font-bold text-gray-800">고객 정보</h3>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">이름 *</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="홍길동"
+            className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">연락처 *</label>
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="010-1234-5678"
+            className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">주소 *</label>
+          <AddressSearchInput value={address} onChange={setAddress} placeholder="주소 검색" />
+          <input
+            type="text"
+            value={detailAddress}
+            onChange={(e) => setDetailAddress(e.target.value)}
+            placeholder="상세 주소 (동/호수)"
+            className="w-full mt-2 px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">이메일</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="example@email.com"
+            className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h3 className="font-bold text-gray-800">반려동물 (강아지 여러 마리 등록 가능)</h3>
+          <button
+            type="button"
+            onClick={() => { setEditingPet(null); setShowPetForm(true); }}
+            className="text-sm py-2 px-4 bg-mimi-orange/20 text-mimi-orange rounded-lg hover:bg-mimi-orange/30"
+          >
+            + 반려동물 추가
+          </button>
+        </div>
+
+        {pets.map((pet) => (
+          <div key={pet.id} className="p-4 bg-gray-50 rounded-xl">
+            {editingPet?.id === pet.id ? (
+              <PetForm
+                key={pet.id}
+                pet={pet}
+                onSave={(updates) => updatePet(pet.id, updates)}
+                onCancel={() => setEditingPet(null)}
+              />
+            ) : (
+              <div className="flex items-start gap-4">
+                {pet.photoUrl ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={pet.photoUrl} alt={pet.name} className="w-16 h-16 rounded-full object-cover" />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-mimi-orange/20 flex items-center justify-center text-2xl">
+                    🐕
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold">{pet.name}</p>
+                  <p className="text-sm text-gray-600">
+                    {pet.species}
+                    {pet.breed && ` · ${pet.breed}`}
+                    {(pet.breedType || pet.weightTier || pet.weightKg) && ` · ${pet.breedType ?? ""} ${pet.weightTier ?? (pet.weightKg ? `${pet.weightKg}kg` : "")}`.trim()}
+                    {` · ${getPetAge(pet)}`}
+                  </p>
+                  {pet.healthConditions && <p className="text-xs text-amber-700">지병: {pet.healthConditions}</p>}
+                  {pet.isAggressive && <p className="text-xs text-red-600">⚠️ 사나움 주의</p>}
+                  {pet.notes && <p className="text-xs text-gray-500">{pet.notes}</p>}
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setEditingPet(pet)} className="text-sm text-mimi-orange hover:underline">수정</button>
+                  <button type="button" onClick={() => removePet(pet.id)} className="text-sm text-red-500 hover:underline">삭제</button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+
+        {(showPetForm || (pets.length === 0 && !editingPet)) && (
+          <PetForm
+            key="new"
+            onSave={(p) => addPet(p)}
+            onCancel={() => { setShowPetForm(false); }}
+          />
+        )}
+      </div>
+
+      <p className="text-sm text-amber-600">* 예약을 위해 반려동물 1마리 이상 등록이 필요합니다. 강아지 여러 마리를 등록할 수 있습니다.</p>
+      <button
+        type="submit"
+        disabled={!name.trim() || !phone.trim() || !address.trim() || pets.length === 0}
+        className="w-full py-3 bg-mimi-orange text-white rounded-xl font-bold disabled:opacity-50"
+      >
+        {submitLabel}
+      </button>
+    </form>
+  );
+}
+
+type PetFormProps = {
+  pet?: Pet;
+  onSave: (pet: Pet | Omit<Pet, "id" | "createdAt">) => void;
+  onCancel: () => void;
+};
+
+function PetForm({ pet, onSave, onCancel }: PetFormProps) {
+  const [name, setName] = useState(pet?.name ?? "");
+  const [species, setSpecies] = useState<"강아지">("강아지");
+  const breedInList = pet?.breed && (DOG_BREEDS as readonly string[]).includes(pet.breed);
+  const [breed, setBreed] = useState(breedInList ? pet!.breed! : (pet?.breed ? "기타" : ""));
+  const [breedCustom, setBreedCustom] = useState(!breedInList && pet?.breed ? pet.breed : "");
+  const [breedType, setBreedType] = useState<BreedType>(pet?.breedType ?? "소형견");
+  const [weightTier, setWeightTier] = useState<WeightTier>(() => {
+    if (pet?.weightTier) return pet.weightTier as WeightTier;
+    if (pet?.weightKg != null) return weightToTier(pet.weightKg, pet?.breedType ?? "소형견");
+    return "5kg미만";
+  });
+  const [weightKg, setWeightKg] = useState(pet?.weightKg?.toString() ?? "");
+  const [birthYear, setBirthYear] = useState(pet?.birthYear ?? currentYear - 1);
+  const [birthMonth, setBirthMonth] = useState(pet?.birthMonth ?? 1);
+  const [healthConditions, setHealthConditions] = useState(pet?.healthConditions ?? "");
+  const [isAggressive, setIsAggressive] = useState(pet?.isAggressive ?? false);
+  const [preferredServiceId, setPreferredServiceId] = useState(pet?.preferredServiceId ?? "");
+  const [serviceNotes, setServiceNotes] = useState(pet?.serviceNotes ?? "");
+  const [notes, setNotes] = useState(pet?.notes ?? "");
+  const [photoUrl, setPhotoUrl] = useState(pet?.photoUrl ?? "");
+
+  const breedOptions = DOG_BREEDS;
+  const selectedBreed = breed === "기타" ? breedCustom : breed;
+
+  const weightTierOptions = breedType === "소형견" ? WEIGHT_TIERS_SMALL : WEIGHT_TIERS_MEDIUM;
+
+  useEffect(() => {
+    const matching = getServicesForBreed(breedType);
+    const valid = matching.some((s) => s.id === preferredServiceId);
+    if (!valid && matching.length > 0) {
+      setPreferredServiceId(matching[0].id);
+    }
+  }, [breedType, preferredServiceId]);
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const img = new Image();
+      img.onload = () => {
+        const maxSize = 200;
+        let w = img.width;
+        let h = img.height;
+        if (w > maxSize || h > maxSize) {
+          if (w > h) {
+            h = (h * maxSize) / w;
+            w = maxSize;
+          } else {
+            w = (w * maxSize) / h;
+            h = maxSize;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, w, h);
+          setPhotoUrl(canvas.toDataURL("image/jpeg", 0.7));
+        } else {
+          setPhotoUrl(dataUrl);
+        }
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSave = () => {
+    if (!name.trim()) return;
+    const finalTier = weightKg ? weightToTier(parseFloat(weightKg), breedType) : weightTier;
+    const data = {
+      name: name.trim(),
+      species,
+      breed: selectedBreed.trim() || undefined,
+      breedType,
+      weightTier: finalTier,
+      weightKg: weightKg ? parseFloat(weightKg) : undefined,
+      birthYear,
+      birthMonth,
+      healthConditions: healthConditions.trim() || undefined,
+      isAggressive,
+      preferredServiceId: preferredServiceId || undefined,
+      serviceNotes: serviceNotes.trim() || undefined,
+      notes: notes.trim() || undefined,
+      photoUrl: photoUrl || undefined,
+    };
+    if (pet) {
+      onSave({ ...pet, ...data });
+    } else {
+      onSave(data);
+    }
+  };
+
+  return (
+    <div className="space-y-3 p-4 bg-white rounded-xl border-2 border-mimi-orange/30">
+      <h4 className="font-medium text-gray-800">{pet ? "반려동물 수정" : "반려동물 추가"}</h4>
+      <div className="flex gap-4">
+        <div>
+          <label className="block text-xs text-gray-600 mb-1">사진</label>
+          <input type="file" accept="image/*" onChange={handlePhotoChange} className="text-sm" />
+          {photoUrl && (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={photoUrl} alt="" className="mt-1 w-14 h-14 rounded-full object-cover" />
+          )}
+        </div>
+        <div className="flex-1 space-y-2">
+          <div>
+            <label className="block text-xs text-gray-600">이름 *</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="이름"
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+              required
+            />
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <div>
+              <label className="block text-xs text-gray-600">종류</label>
+              <span className="inline-block px-3 py-2 rounded-lg border border-gray-200 text-sm bg-gray-50">강아지</span>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600">품종</label>
+              <select value={breed} onChange={(e) => setBreed(e.target.value)} className="px-3 py-2 rounded-lg border border-gray-200 text-sm">
+                <option value="">선택</option>
+                {breedOptions.map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
+            </div>
+            {breed === "기타" && (
+              <div>
+                <label className="block text-xs text-gray-600">품종 직접입력</label>
+                <input type="text" value={breedCustom} onChange={(e) => setBreedCustom(e.target.value)} placeholder="품종 입력" className="px-3 py-2 rounded-lg border border-gray-200 text-sm w-28" />
+              </div>
+            )}
+            <div>
+              <label className="block text-xs text-gray-600">견종 (요금표)</label>
+              <select value={breedType} onChange={(e) => { const v = e.target.value as BreedType; setBreedType(v); if (v === "소형견" && ["11kg미만", "13kg미만"].includes(weightTier)) setWeightTier("9kg미만"); }} className="px-3 py-2 rounded-lg border border-gray-200 text-sm">
+                {BREED_TYPES.map((b) => (
+                  <option key={b.value} value={b.value}>{b.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600">체중(kg)</label>
+              <input type="number" step="0.1" min="0" max="20" value={weightKg} onChange={(e) => { const v = e.target.value; setWeightKg(v); if (v) setWeightTier(weightToTier(parseFloat(v), breedType)); }} placeholder="예: 4.2" className="px-3 py-2 rounded-lg border border-gray-200 text-sm w-20" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600">체중 구간 (요금표)</label>
+              <select value={weightTier} onChange={(e) => { setWeightTier(e.target.value as WeightTier); setWeightKg(""); }} className="px-3 py-2 rounded-lg border border-gray-200 text-sm">
+                {weightTierOptions.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-0.5">체중 입력 시 자동 적용 · 요금 산정 기준</p>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-600">선호 서비스</label>
+            <select value={preferredServiceId} onChange={(e) => setPreferredServiceId(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm mt-1">
+              <option value="">선택 (해당 서비스로 예약 시 자동 이동)</option>
+              {SERVICE_DEFS.filter((s) => (s.forBreed as readonly BreedType[]).includes(breedType)).map((s) => {
+                const price = getServicePrice(s.id, breedType, weightTier);
+                return (
+                  <option key={s.id} value={s.id}>{s.name} - {breedType} {weightTier} {price > 0 ? `${price.toLocaleString()}원` : ""}</option>
+                );
+              })}
+            </select>
+            {preferredServiceId && (
+              <p className="text-xs text-mimi-orange mt-1">예상 요금: {getServicePrice(preferredServiceId, breedType, weightTier).toLocaleString()}원 (견종·체중 기준)</p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <div>
+              <label className="block text-xs text-gray-600">출생년도</label>
+              <select value={birthYear} onChange={(e) => setBirthYear(Number(e.target.value))} className="px-3 py-2 rounded-lg border border-gray-200 text-sm">
+                {years.map((y) => (
+                  <option key={y} value={y}>{y}년</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600">출생월</label>
+              <select value={birthMonth} onChange={(e) => setBirthMonth(Number(e.target.value))} className="px-3 py-2 rounded-lg border border-gray-200 text-sm">
+                {months.map((m) => (
+                  <option key={m} value={m}>{m}월</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-600">지병 여부</label>
+            <input
+              type="text"
+              value={healthConditions}
+              onChange={(e) => setHealthConditions(e.target.value)}
+              placeholder="없음 또는 기재"
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+            />
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={isAggressive} onChange={(e) => setIsAggressive(e.target.checked)} />
+            <span>사나움 주의</span>
+          </label>
+          <div>
+            <label className="block text-xs text-gray-600">서비스별 추가요청</label>
+            <input
+              type="text"
+              value={serviceNotes}
+              onChange={(e) => setServiceNotes(e.target.value)}
+              placeholder="예: 털 많이 잘라주세요, 특정 스타일 원함"
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-600">기타 특이사항</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="알레르기, 약 복용 중 등"
+              rows={2}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm resize-none"
+            />
+          </div>
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <button type="button" onClick={handleSave} className="px-4 py-2 bg-mimi-orange text-white rounded-lg text-sm">저장</button>
+        <button type="button" onClick={onCancel} className="px-4 py-2 text-gray-600 rounded-lg text-sm">취소</button>
+      </div>
+    </div>
+  );
+}
