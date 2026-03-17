@@ -53,7 +53,7 @@ export default function HeaderNav() {
   };
 
   return (
-    <nav className="flex items-center gap-6 md:gap-8 flex-wrap">
+    <nav className="flex items-center gap-3 sm:gap-6 md:gap-8 flex-wrap justify-end min-w-0">
       <Link href="/mypage" className="text-sm text-mimi-slate hover:text-mimi-primary transition-colors font-medium">
         마이페이지
       </Link>
@@ -74,7 +74,7 @@ export default function HeaderNav() {
       )}
       <Link
         href="/booking"
-        className="btn-primary text-sm py-2.5 px-5"
+        className="btn-primary text-xs sm:text-sm py-2 px-4 sm:py-2.5 sm:px-5"
       >
         예약하기
       </Link>

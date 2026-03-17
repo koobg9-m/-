@@ -2,9 +2,9 @@ import Link from "next/link";
 
 export default function Footer() {
   return (
-    <footer className="bg-mimi-charcoal text-stone-300 mt-auto">
-      <div className="page-container py-20">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 md:gap-12">
+    <footer className="bg-mimi-charcoal text-stone-300 mt-auto overflow-x-hidden">
+      <div className="page-container py-12 md:py-20">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-6 md:gap-12">
 <div className="col-span-2 md:col-span-2">
             <Link href="/" className="flex items-center gap-2 mb-6">
               <span className="text-2xl">🐾</span>
@@ -55,10 +55,10 @@ export default function Footer() {
             </ul>
           </div>
         </div>
-        <div className="border-t border-stone-700 mt-16 pt-8">
-          <div className="text-stone-500 text-sm space-y-1 mb-6">
+        <div className="border-t border-stone-700 mt-12 md:mt-16 pt-6 md:pt-8">
+          <div className="text-stone-500 text-xs sm:text-sm space-y-1 mb-6 break-words">
             <p>주소: 65-1, Sadang-ro, Dongjak-gu, Seoul, Korea (서울시 동작구 사당로 65-1)</p>
-            <p>사업자등록번호: 828-87-000919 | 통신판매업신고: 2023-서울동작-0405</p>
+            <p className="break-words">사업자등록번호: 828-87-000919 | 통신판매업신고: 2023-서울동작-0405</p>
             <p>대표: 구본기 | 개인정보관리책임자: 구본기</p>
             <p>연락처: 070-7651-9568 | 제휴·문의: <a href="mailto:koobg@naver.com" className="text-mimi-gold hover:underline">koobg@naver.com</a></p>
             <p>예약문의: <a href="tel:010-4546-2955" className="text-mimi-gold hover:underline font-medium">010-4546-2955</a></p>

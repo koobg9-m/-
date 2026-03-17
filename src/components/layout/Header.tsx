@@ -8,8 +8,8 @@ export default function Header() {
   const [logoError, setLogoError] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl border-b border-stone-100">
-      <div className="page-container py-4 md:py-5 flex items-center justify-between">
+    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl border-b border-stone-100 overflow-x-hidden">
+      <div className="page-container py-3 md:py-5 flex items-center justify-between gap-2 min-w-0">
         <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-85 p-2 -m-2">
           <div className="rounded-xl overflow-hidden h-11 md:h-12 flex items-center">
             {logoError ? (

@@ -48,7 +48,7 @@ const HomeNotices = dynamic(() => import("@/components/home/HomeNotices"), {
 
 export default function Home() {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col overflow-x-hidden w-full">
       <Header />
       <main className="flex-1">
         <Hero />
