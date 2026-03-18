@@ -123,6 +123,8 @@ export type Booking = {
   pointsUsed?: number;
   /** 이 예약으로 적립된 포인트 */
   pointsEarned?: number;
+  /** 서비스 총액 (포인트 할인 전) - 정산 시 수수료 계산 기준 */
+  serviceTotal?: number;
   /** 예약확정 시각 (디자이너가 확인 후 확정) */
   confirmedAt?: string;
   /** 고객에게 확인/예약확정 통보 시각 */

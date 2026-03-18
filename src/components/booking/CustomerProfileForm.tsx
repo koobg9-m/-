@@ -30,7 +30,6 @@ export default function CustomerProfileForm({ onComplete, initialData, submitLab
   const [showPetForm, setShowPetForm] = useState(false);
 
   useEffect(() => {
-    const saved = getCustomerProfile();
     let loginData: { phone?: string; email?: string } = {};
     try {
       const login = typeof window !== "undefined" ? localStorage.getItem("mimi_demo_user") : null;
@@ -38,13 +37,15 @@ export default function CustomerProfileForm({ onComplete, initialData, submitLab
     } catch {
       // ignore
     }
-    const src = initialData ?? saved;
-    setName(src?.name ?? "");
-    setPhone(src?.phone ?? loginData.phone ?? "");
-    setAddress(src?.address ?? "");
-    setDetailAddress(src?.detailAddress ?? "");
-    setEmail(src?.email ?? loginData.email ?? "");
-    setPets(src?.pets ?? []);
+    getCustomerProfile(loginData.phone, loginData.email).then((saved) => {
+      const src = initialData ?? saved;
+      setName(src?.name ?? "");
+      setPhone(src?.phone ?? loginData.phone ?? "");
+      setAddress(src?.address ?? "");
+      setDetailAddress(src?.detailAddress ?? "");
+      setEmail(src?.email ?? loginData.email ?? "");
+      setPets(src?.pets ?? []);
+    });
   }, [initialData]);
 
   const handleSubmit = (e: React.FormEvent) => {

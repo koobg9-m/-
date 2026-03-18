@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useState } from "react";
 
 export default function Hero() {
-  const [logoError, setLogoError] = useState(false);
   const [mainLogoError, setMainLogoError] = useState(false);
 
   return (
@@ -19,17 +18,9 @@ export default function Hero() {
 
       <div className="page-container relative z-10 overflow-x-hidden">
         <div className="text-center max-w-xl mx-auto">
-          {/* 좌: 로고 — 우: 메인 로고(첨부 이미지) - 모바일: 세로 배치 */}
-          <div className="mb-6 flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-6 md:gap-8">
-            <div className="aspect-square w-[120px] h-[120px] sm:w-[160px] sm:h-[160px] md:w-[220px] md:h-[220px] rounded-2xl overflow-hidden bg-mimi-creamBg shadow-[0_4px_20px_-4px_rgba(30,45,45,0.12)] flex items-center justify-center p-3 sm:p-4 border border-stone-100 shrink-0">
-              {logoError ? (
-                <img src="/hero-dog.svg" alt="미미살롱펫" width={120} height={120} className="object-contain opacity-90" />
-              ) : (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src="/logo.png" alt="미미살롱펫" width={220} height={220} className="w-full h-full object-contain rounded-xl" onError={() => setLogoError(true)} />
-              )}
-            </div>
-            <div className="aspect-square w-[120px] h-[120px] sm:w-[160px] sm:h-[160px] md:w-[220px] md:h-[220px] rounded-2xl overflow-hidden shadow-[0_4px_20px_-4px_rgba(30,45,45,0.12)] flex items-center justify-center shrink-0 bg-mimi-creamBg">
+          {/* 노란색 메인 로고 (50% 확대) */}
+          <div className="mb-6 flex justify-center items-center">
+            <div className="aspect-square w-[180px] h-[180px] sm:w-[240px] sm:h-[240px] md:w-[330px] md:h-[330px] rounded-2xl overflow-hidden shadow-[0_4px_20px_-4px_rgba(30,45,45,0.12)] flex items-center justify-center shrink-0 bg-mimi-creamBg">
               {mainLogoError ? (
                 <img src="/hero-dog.svg" alt="mimi SALON Pet" width={120} height={120} className="object-contain opacity-90" />
               ) : (

@@ -59,3 +59,6 @@ API 키가 없으면 주소 기반 추정으로 동작합니다.
 1. Create a project at [supabase.com](https://supabase.com)
 2. Get your project URL and anon key from Project Settings → API
 3. Add them to `.env.local`
+4. **PC/모바일 데이터 동기화**: Supabase 대시보드 → SQL Editor에서 `supabase/migrations/20250314000000_app_data.sql` 내용 실행
+   - 디자이너, 예약, 고객 등 데이터가 Supabase에 저장되어 PC와 핸드폰에서 동시에 접근 가능
+   - Supabase 미설정 시 기존처럼 localStorage 사용 (기기별 데이터)

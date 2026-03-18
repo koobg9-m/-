@@ -23,9 +23,9 @@ function getStatusLabel(s: string): string {
 function BookingReviewForm({ booking, onSaved }: { booking: Booking; onSaved: () => void }) {
   const [rating, setRating] = useState(0);
   const [text, setText] = useState("");
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (rating < 1) return;
-    updateBooking(booking.id, { reviewRating: rating, reviewText: text.trim() || undefined, reviewAt: new Date().toISOString() });
+    await updateBooking(booking.id, { reviewRating: rating, reviewText: text.trim() || undefined, reviewAt: new Date().toISOString() });
     onSaved();
   };
   return (
@@ -66,23 +66,30 @@ function MypageContent() {
   }, []);
   const [bookings, setBookings] = useState<Booking[]>([]);
 
-  const profile = initialProfile ?? getCustomerProfile();
+  const [profile, setProfile] = useState<CustomerProfile | null>(null);
 
   useEffect(() => {
-    setInitialProfile(getCustomerProfile());
+    getCustomerProfile().then((p) => {
+      setInitialProfile(p);
+      setProfile(p ?? null);
+    });
   }, [saved]);
 
   const [bookingsRefresh, setBookingsRefresh] = useState(0);
   useEffect(() => {
-    const p = getCustomerProfile();
-    if (p?.phone || p?.email) {
-      setBookings(getBookingsByCustomer(p.phone, p.email));
-    }
+    getCustomerProfile().then((p) => {
+      if (p?.phone || p?.email) {
+        return getBookingsByCustomer(p.phone, p.email).then(setBookings);
+      }
+      setBookings([]);
+    });
   }, [tab, saved, bookingsRefresh, initialProfile?.phone, initialProfile?.email]);
 
-  const handleComplete = (prof: CustomerProfile) => {
+  const displayProfile = initialProfile ?? profile;
+
+  const handleComplete = async (prof: CustomerProfile) => {
     setSaveError(null);
-    const ok = saveCustomerProfile(prof);
+    const ok = await saveCustomerProfile(prof);
     if (!ok) {
       setSaveError("저장에 실패했습니다. 반려동물 사진이 많거나 크면 줄여 주세요.");
       return;
@@ -159,14 +166,14 @@ function MypageContent() {
 
           {tab === "overview" && (
             <>
-              {profile && (
+              {displayProfile && (
                 <>
                   <div className="card p-5 mb-6">
-                    <p className="font-medium text-gray-800">{profile.name}</p>
-                    <p className="text-sm text-gray-600">{profile.phone}</p>
-                    {profile.email && <p className="text-sm text-gray-600">{profile.email}</p>}
-                    <p className="text-sm text-gray-600">{profile.address} {profile.detailAddress ?? ""}</p>
-                    <p className="text-sm text-gray-500 mt-1">반려동물 {profile.pets?.length ?? 0}마리 · 총 이용 {completedCount}회 · 보유 포인트 <strong className="text-amber-600">{getCustomerPoints(profile.phone, profile.email)}P</strong></p>
+                    <p className="font-medium text-gray-800">{displayProfile.name}</p>
+                    <p className="text-sm text-gray-600">{displayProfile.phone}</p>
+                    {displayProfile.email && <p className="text-sm text-gray-600">{displayProfile.email}</p>}
+                    <p className="text-sm text-gray-600">{displayProfile.address} {displayProfile.detailAddress ?? ""}</p>
+                    <p className="text-sm text-gray-500 mt-1">반려동물 {displayProfile.pets?.length ?? 0}마리 · 총 이용 {completedCount}회 · 보유 포인트 <strong className="text-amber-600">{getCustomerPoints(displayProfile.phone, displayProfile.email)}P</strong></p>
                   </div>
                   {completedCount > 0 && (
                     <div className="card p-6 mb-6">
@@ -213,7 +220,7 @@ function MypageContent() {
                   )}
                 </>
               )}
-              {!profile && (
+              {!displayProfile && (
                 <div className="card p-8 text-center text-gray-600">
                   <p>프로필이 없습니다. 내 정보에서 등록해 주세요.</p>
                   <button onClick={() => setTab("profile")} className="mt-4 text-mimi-orange hover:underline font-medium">내 정보 등록하기 →</button>

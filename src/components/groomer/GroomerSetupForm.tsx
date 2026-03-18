@@ -64,7 +64,7 @@ export default function GroomerSetupForm() {
     setSlots((prev) => prev.filter((s) => s.date !== date));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const { name: n, phone: ph, email: em, birthDate: bd, gender: gen, intro: inr, career: car, address: a, radiusKm: r, slots: sl, bankName: bn, accountNumber: an, accountHolder: ah } = latestRef.current;
     if (!n.trim() || !a.trim()) return;
     const id = `G${Date.now()}`;
@@ -92,7 +92,7 @@ export default function GroomerSetupForm() {
       accountNumber: (an ?? "").trim() || undefined,
       accountHolder: (ah ?? "").trim() || undefined,
     };
-    saveGroomerProfile(profile);
+    await saveGroomerProfile(profile);
     localStorage.setItem(MY_GROOMER_KEY, id);
     alert("신청이 완료되었습니다. 관리자가 비밀번호를 부여하면 서비스 개시됩니다.");
     window.location.href = "/groomer";

@@ -88,18 +88,18 @@ function BookingPhotoUpload({ booking, onUpdate }: { booking: Booking; onUpdate:
       const r = new FileReader();
       r.onload = () => res(r.result as string);
       r.readAsDataURL(f);
-    }))).then((urls) => {
+    }))).then(async (urls) => {
       const list = type === "before" ? [...beforePhotos, ...urls] : [...afterPhotos, ...urls];
-      updateBooking(booking.id, type === "before" ? { beforePhotos: list.slice(0, 5) } : { afterPhotos: list.slice(0, 5) });
+      await updateBooking(booking.id, type === "before" ? { beforePhotos: list.slice(0, 5) } : { afterPhotos: list.slice(0, 5) });
       onUpdate();
     }).finally(() => setUploading(false));
     e.target.value = "";
   };
 
-  const removePhoto = (type: "before" | "after", idx: number) => {
+  const removePhoto = async (type: "before" | "after", idx: number) => {
     const list = type === "before" ? [...beforePhotos] : [...afterPhotos];
     list.splice(idx, 1);
-    updateBooking(booking.id, type === "before" ? { beforePhotos: list } : { afterPhotos: list });
+    await updateBooking(booking.id, type === "before" ? { beforePhotos: list } : { afterPhotos: list });
     onUpdate();
   };
 
@@ -173,13 +173,13 @@ export default function GroomerPage() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
 
-  const loadProfile = () => {
+  const loadProfile = async () => {
     const id = localStorage.getItem(MY_GROOMER_KEY);
     setMyId(id);
     if (id) {
-      const p = getGroomerById(id);
+      const [p, allBookings] = await Promise.all([getGroomerById(id), getBookings()]);
       setProfile(p ?? null);
-      setBookings(getBookings().filter((b) => b.groomerId === id));
+      setBookings(allBookings.filter((b) => b.groomerId === id));
       const auth = typeof sessionStorage !== "undefined" ? sessionStorage.getItem(GROOMER_AUTH_KEY) : null;
       setAuthenticated(!!p?.passwordHash && auth === id);
     } else {
@@ -194,9 +194,10 @@ export default function GroomerPage() {
 
   useEffect(() => {
     if (tab === "dashboard" && myId) {
-      const p = getGroomerById(myId);
-      if (p) setProfile(p);
-      setBookings(getBookings().filter((b) => b.groomerId === myId));
+      Promise.all([getGroomerById(myId), getBookings()]).then(([p, allBookings]) => {
+        if (p) setProfile(p);
+        setBookings(allBookings.filter((b) => b.groomerId === myId));
+      });
     }
   }, [tab, myId]);
 
@@ -239,7 +240,8 @@ export default function GroomerPage() {
       setLoginError("연락처를 입력해 주세요.");
       return;
     }
-    const found = getGroomerProfiles().find((p) => normalizePhone(p.phone ?? "") === phoneNorm);
+    const profiles = await getGroomerProfiles();
+    const found = profiles.find((p) => normalizePhone(p.phone ?? "") === phoneNorm);
     if (!found) {
       setLoginError("등록된 디자이너를 찾을 수 없습니다. 연락처를 확인해 주세요.");
       return;
@@ -405,9 +407,9 @@ export default function GroomerPage() {
           {tab === "dashboard" ? (
             <GroomerDashboard profile={profile} bookings={bookings} onRefresh={loadProfile} />
           ) : (
-            <GroomerSetup key={profile.id} profile={profile} embedded bookingsCount={bookings.length} onComplete={(p) => {
+            <GroomerSetup key={profile.id} profile={profile} embedded bookingsCount={bookings.length} onComplete={async (p) => {
               const toSave = { ...p, radiusKm: Number(p.radiusKm) || 10 };
-              const ok = saveGroomerProfile(toSave);
+              const ok = await saveGroomerProfile(toSave);
               if (ok) {
                 setProfile(toSave);
                 setTab("dashboard");
@@ -456,9 +458,9 @@ function GroomerDashboard({ profile, bookings, onRefresh }: { profile: GroomerPr
     setConfirmingBooking(b);
     setConfirmTime(defaultTime);
   };
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!confirmingBooking) return;
-    updateBooking(confirmingBooking.id, {
+    await updateBooking(confirmingBooking.id, {
       status: "confirmed",
       confirmedAt: new Date().toISOString(),
       time: confirmTime,
@@ -482,7 +484,7 @@ function GroomerDashboard({ profile, bookings, onRefresh }: { profile: GroomerPr
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "SMS 발송 실패");
-      updateBooking(b.id, { customerNotifiedAt: new Date().toISOString() });
+      await updateBooking(b.id, { customerNotifiedAt: new Date().toISOString() });
       onRefresh();
       alert("고객에게 예약확정 문자가 발송되었습니다.");
     } catch (e) {
@@ -491,12 +493,12 @@ function GroomerDashboard({ profile, bookings, onRefresh }: { profile: GroomerPr
       setNotifyLoading(null);
     }
   };
-  const handleComplete = (b: Booking) => {
-    updateBooking(b.id, { status: "completed", settlementStatus: "unsettled" });
+  const handleComplete = async (b: Booking) => {
+    await updateBooking(b.id, { status: "completed", settlementStatus: "unsettled" });
     onRefresh();
   };
-  const handleSettlementRequest = (b: Booking) => {
-    updateBooking(b.id, { settlementRequestedAt: new Date().toISOString() });
+  const handleSettlementRequest = async (b: Booking) => {
+    await updateBooking(b.id, { settlementRequestedAt: new Date().toISOString() });
     onRefresh();
   };
 

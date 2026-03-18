@@ -60,27 +60,39 @@ export default function BookingForm() {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [matchLoading, setMatchLoading] = useState(false);
   const [serviceSelectError, setServiceSelectError] = useState<string | null>(null);
+  const [completedCount, setCompletedCount] = useState(0);
 
   const DEFAULT_REGION_CHECK_SERVICE = "bathFace";
 
   useEffect(() => {
-    setGroomers(getGroomerProfiles());
-    const prof = getCustomerProfile();
-    setCustomer(prof);
-    const serviceParam = searchParams.get("service");
-    if (canProceedToBooking(prof)) {
-      setStep("region");
-      if (serviceParam && SERVICE_DEFS.some((s) => s.id === serviceParam)) {
-        setServiceId(serviceParam);
-      } else if (prof?.pets?.length) {
-        const preferred = prof.pets.find((p) => p.preferredServiceId)?.preferredServiceId;
-        if (preferred && SERVICE_DEFS.some((s) => s.id === preferred)) {
-          setServiceId(preferred);
-        }
-      }
-    } else if (serviceParam && SERVICE_DEFS.some((s) => s.id === serviceParam)) {
-      setServiceId(serviceParam);
+    if (customer?.phone || customer?.email) {
+      getBookingsByCustomer(customer.phone, customer.email).then((list) =>
+        setCompletedCount(list.filter((b) => b.status === "completed").length)
+      );
+    } else {
+      setCompletedCount(0);
     }
+  }, [customer?.phone, customer?.email]);
+
+  useEffect(() => {
+    Promise.all([getGroomerProfiles(), getCustomerProfile()]).then(([gList, prof]) => {
+      setGroomers(gList);
+      setCustomer(prof);
+      const serviceParam = searchParams.get("service");
+      if (canProceedToBooking(prof)) {
+        setStep("region");
+        if (serviceParam && SERVICE_DEFS.some((s) => s.id === serviceParam)) {
+          setServiceId(serviceParam);
+        } else if (prof?.pets?.length) {
+          const preferred = prof.pets.find((p) => p.preferredServiceId)?.preferredServiceId;
+          if (preferred && SERVICE_DEFS.some((s) => s.id === preferred)) {
+            setServiceId(preferred);
+          }
+        }
+      } else if (serviceParam && SERVICE_DEFS.some((s) => s.id === serviceParam)) {
+        setServiceId(serviceParam);
+      }
+    });
   }, [searchParams]);
 
   useEffect(() => {
@@ -95,8 +107,7 @@ export default function BookingForm() {
   useEffect(() => {
     const gid = searchParams.get("groomer");
     if (gid) {
-      const g = getGroomerById(gid);
-      if (g) setGroomer(g);
+      getGroomerById(gid).then((g) => { if (g) setGroomer(g); });
     }
   }, [searchParams]);
 
@@ -127,9 +138,9 @@ export default function BookingForm() {
     ? groomer.services.find((s) => s.id === serviceId)
     : matchedGroomers[0]?.service ?? SERVICE_DEFS.find((s) => s.id === serviceId);
 
-  const handleProfileComplete = (profile: CustomerProfile) => {
+  const handleProfileComplete = async (profile: CustomerProfile) => {
     setProfileError(null);
-    const ok = saveCustomerProfile(profile);
+    const ok = await saveCustomerProfile(profile);
     if (!ok) {
       setProfileError("저장에 실패했습니다. 반려동물 사진이 많거나 크면 줄여 주세요.");
       return;
@@ -225,7 +236,6 @@ export default function BookingForm() {
   const additionalFeesTotal = selectedAdditionalItems.reduce((s, f) => s + getAdditionalFeePrice(f, primaryBreed), 0);
   const totalPrice = basePrice + additionalFeesTotal;
 
-  const completedCount = customer ? getBookingsByCustomer(customer.phone, customer.email).filter((b) => b.status === "completed").length : 0;
   const pointSettings = getPointSettings();
   const canUsePoints = completedCount >= pointSettings.minVisitToUse - 1;
   const ownedPoints = customer ? getCustomerPoints(customer.phone, customer.email) : 0;
@@ -233,7 +243,7 @@ export default function BookingForm() {
   const pointDiscount = calcDiscountFromPoints(Math.min(pointsToUse, maxUsable));
   const finalPrice = Math.max(0, totalPrice - pointDiscount);
 
-  const handlePayment = () => {
+  const handlePayment = async () => {
     const firstPet = selectedPets[0]!;
     const actualPointsUsed = Math.min(pointsToUse, maxUsable);
     if (actualPointsUsed > 0) {
@@ -248,6 +258,7 @@ export default function BookingForm() {
       serviceId: serviceId!,
       serviceName: service?.name ?? SERVICE_DEFS.find((s) => s.id === serviceId)?.name ?? "",
       price: finalPrice,
+      serviceTotal: totalPrice,
       pointsUsed: actualPointsUsed > 0 ? actualPointsUsed : undefined,
       pointsEarned: pointsEarned > 0 ? pointsEarned : undefined,
       additionalFees: selectedAdditionalItems.length > 0 ? selectedAdditionalItems.map((f) => ({ id: f.id, name: f.name, price: getAdditionalFeePrice(f, primaryBreed) })) : undefined,
@@ -268,7 +279,7 @@ export default function BookingForm() {
       createdAt: new Date().toISOString(),
       photoConsentAgreed: photoConsentAgreed || undefined,
     };
-    saveBooking(booking);
+    await saveBooking(booking);
     setSuccess(true);
   };
 

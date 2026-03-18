@@ -18,7 +18,7 @@ function customerKey(b: Booking): string {
  * - 완료일 + 주기(기본 28일) - 7일 = 발송일
  * - 관리자 페이지 로드 시 실행
  */
-export function checkAndSendGroomingReminders(): { sent: number; skipped: number } {
+export async function checkAndSendGroomingReminders(): Promise<{ sent: number; skipped: number }> {
   const settings = getAdminSettings();
   if (!settings.groomingReminderEnabled) return { sent: 0, skipped: 0 };
 
@@ -28,7 +28,8 @@ export function checkAndSendGroomingReminders(): { sent: number; skipped: number
   const template = getSmsTemplates().find((t) => t.trigger === "grooming_recommend");
   const bodyTemplate = template?.body ?? "[미미살롱펫] {customerName}님, {petName}의 미용 추천 시기가 1주일 남았습니다. 예약해 주세요!";
 
-  const completed = getBookings().filter((b) => b.status === "completed" && (b.customerPhone || b.customerEmail));
+  const allBookings = await getBookings();
+  const completed = allBookings.filter((b) => b.status === "completed" && (b.customerPhone || b.customerEmail));
 
   // 고객별 가장 최근 완료 예약 (날짜 기준)
   const byCustomer = new Map<string, Booking>();
@@ -88,7 +89,7 @@ export function checkAndSendGroomingReminders(): { sent: number; skipped: number
       bookingId: booking.id,
     });
 
-    updateBooking(booking.id, { groomingReminderSentAt: new Date().toISOString() });
+    await updateBooking(booking.id, { groomingReminderSentAt: new Date().toISOString() });
     sent++;
   }
 

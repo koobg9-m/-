@@ -11,7 +11,7 @@ export default function GroomerSearch() {
   const [groomers, setGroomers] = useState<GroomerProfile[]>([]);
 
   useEffect(() => {
-    setGroomers(getGroomerProfiles());
+    getGroomerProfiles().then(setGroomers);
   }, []);
 
   const handleSearch = () => {

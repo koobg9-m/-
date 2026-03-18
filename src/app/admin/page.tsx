@@ -8,7 +8,7 @@ import { getBookings, getGroomerProfiles, updateGroomer, updateBooking } from "@
 import { SERVICE_DEFS, getServicePrices, saveServicePrices, getServicePricesLegacy, getAdditionalFees, saveAdditionalFees, DEFAULT_ADDITIONAL_FEES, DEFAULT_PRICE_TABLE, type BreedType, type WeightTier, type AdditionalFeeItem } from "@/lib/services";
 import { hashPassword, verifyPassword } from "@/lib/auth-utils";
 import { setAdminAuthCookie, clearAdminAuthCookie, hasAdminAuthCookie } from "@/lib/admin-auth-cookie";
-import { getAdminSettings, saveAdminSettings, calcCommission, calcSettlementAmount } from "@/lib/admin-settings";
+import { getAdminSettings, saveAdminSettings, calcCommission, calcSettlementAmount, getServiceTotalForSettlement } from "@/lib/admin-settings";
 import { checkAndSendGroomingReminders } from "@/lib/grooming-reminder";
 import { getPointSettings, savePointSettings, getCustomerPoints, setCustomerPoints, type PointSettings } from "@/lib/point-storage";
 import { getSmsTemplates, saveSmsTemplates, getSmsLog, addSmsLog, fillTemplate, type SmsTemplate } from "@/lib/notification-storage";
@@ -114,6 +114,7 @@ function AmountBarChart({ data }: { data: { label: string; value: number }[] }) 
 export default function AdminPage() {
   const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [groomers, setGroomers] = useState<GroomerProfile[]>([]);
   const [tab, setTab] = useState<"dashboard" | "homepage" | "groomers" | "customers" | "time" | "bookings" | "settlement" | "prices" | "points" | "settings">("dashboard");
   const [prices, setPrices] = useState<Record<string, number>>({});
   const [pricesSaved, setPricesSaved] = useState(false);
@@ -179,12 +180,11 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    try {
-      setBookings(getBookings());
-    } catch {
-      // ignore
-    }
-  }, [tab]);
+    Promise.all([getBookings(), getGroomerProfiles()]).then(([bList, gList]) => {
+      setBookings(bList);
+      setGroomers(gList);
+    }).catch(() => {});
+  }, [tab, groomersRefresh]);
 
   useEffect(() => {
     if (tab === "customers") {
@@ -239,15 +239,12 @@ export default function AdminPage() {
   /** 미용 추천 리마인더: 관리자 페이지 로드 시 1주일 전 자동 발송 대상 확인 */
   useEffect(() => {
     if (!authChecked || !authenticated) return;
-    try {
-      const { sent } = checkAndSendGroomingReminders();
+    checkAndSendGroomingReminders().then(({ sent }) => {
       if (sent > 0) {
-        setBookings(getBookings());
+        getBookings().then(setBookings);
         setSmsLog(getSmsLog());
       }
-    } catch {
-      // ignore
-    }
+    }).catch(() => {});
   }, [authChecked, authenticated]);
 
   /** 자동 저장: 요금 (1.5초 디바운스) */
@@ -370,13 +367,15 @@ export default function AdminPage() {
   };
 
   const commissionRate = settings.commissionRate ?? 10;
+  const pointValueWon = pointSettings.pointValueWon ?? 1;
+  const svcTotal = (b: { price: number; pointsUsed?: number; serviceTotal?: number }) => getServiceTotalForSettlement(b, pointValueWon);
   const completedBookings = bookings.filter((b) => b.status === "completed");
   const unsettled = completedBookings.filter((b) => (b.settlementStatus ?? "unsettled") === "unsettled");
   const settled = completedBookings.filter((b) => b.settlementStatus === "settled");
-  const totalRevenue = completedBookings.reduce((s, b) => s + (b.price ?? 0), 0);
-  const totalCommission = completedBookings.reduce((s, b) => s + calcCommission(b.price ?? 0, commissionRate), 0);
-  const unsettledAmount = unsettled.reduce((s, b) => s + calcSettlementAmount(b.price ?? 0, commissionRate), 0);
-  const settledAmount = settled.reduce((s, b) => s + calcSettlementAmount(b.price ?? 0, commissionRate), 0);
+  const totalRevenue = completedBookings.reduce((s, b) => s + svcTotal(b), 0);
+  const totalCommission = completedBookings.reduce((s, b) => s + calcCommission(svcTotal(b), commissionRate), 0);
+  const unsettledAmount = unsettled.reduce((s, b) => s + calcSettlementAmount(svcTotal(b), commissionRate), 0);
+  const settledAmount = settled.reduce((s, b) => s + calcSettlementAmount(svcTotal(b), commissionRate), 0);
 
   const statusCounts = ["paid", "confirmed", "completed", "cancelled"].map((status) => ({
     label: getStatusLabel(status),
@@ -394,7 +393,7 @@ export default function AdminPage() {
     const key = `${y}-${m}`;
     const amount = completedBookings
       .filter((b) => b.date?.startsWith(key))
-      .reduce((s, b) => s + (b.price ?? 0), 0);
+      .reduce((s, b) => s + svcTotal(b), 0);
     return { label: `${m}월`, value: amount };
   });
 
@@ -474,7 +473,7 @@ export default function AdminPage() {
     }
     const c = acc[key];
     c.visitCount += 1;
-    if (b.status === "completed") c.totalAmount += b.price ?? 0;
+    if (b.status === "completed") c.totalAmount += svcTotal(b);
     if ((b.date ?? "") < c.firstDate) c.firstDate = b.date ?? "";
     if ((b.date ?? "") > c.lastDate) c.lastDate = b.date ?? "";
     if (c.name === "" && b.customerName) c.name = b.customerName;
@@ -541,7 +540,6 @@ export default function AdminPage() {
     }).length,
   })).filter((d) => d.value > 0);
 
-  const groomers = getGroomerProfiles();
   const groomerIds = new Set(groomers.map((g) => g.id));
   const bookingsByGroomer = groomers.map((g) => {
     const gBookings = bookings.filter((b) => b.groomerId === g.id);
@@ -552,10 +550,10 @@ export default function AdminPage() {
       : null;
     const gUnsettled = gCompleted.filter((b) => (b.settlementStatus ?? "unsettled") === "unsettled");
     const gSettled = gCompleted.filter((b) => b.settlementStatus === "settled");
-    const gRevenue = gCompleted.reduce((s, b) => s + (b.price ?? 0), 0);
-    const gCommission = gCompleted.reduce((s, b) => s + calcCommission(b.price ?? 0, commissionRate), 0);
-    const gUnsettledAmount = gUnsettled.reduce((s, b) => s + calcSettlementAmount(b.price ?? 0, commissionRate), 0);
-    const gSettledAmount = gSettled.reduce((s, b) => s + calcSettlementAmount(b.price ?? 0, commissionRate), 0);
+    const gRevenue = gCompleted.reduce((s, b) => s + svcTotal(b), 0);
+    const gCommission = gCompleted.reduce((s, b) => s + calcCommission(svcTotal(b), commissionRate), 0);
+    const gUnsettledAmount = gUnsettled.reduce((s, b) => s + calcSettlementAmount(svcTotal(b), commissionRate), 0);
+    const gSettledAmount = gSettled.reduce((s, b) => s + calcSettlementAmount(svcTotal(b), commissionRate), 0);
     return {
       groomer: g,
       bookings: gBookings,
@@ -819,7 +817,7 @@ export default function AdminPage() {
                 </div>
                 <div className="card p-5">
                   <p className="text-sm text-gray-500">등록 디자이너</p>
-                  <p className="text-2xl font-bold text-gray-800 mt-1">{getGroomerProfiles().length}명</p>
+                  <p className="text-2xl font-bold text-gray-800 mt-1">{groomers.length}명</p>
                 </div>
               </div>
 
@@ -1098,9 +1096,10 @@ export default function AdminPage() {
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      updateGroomer(g.id, { suspended: !g.suspended });
-                                      setBookings(getBookings());
-                                      setGroomersRefresh((k) => k + 1);
+                                      updateGroomer(g.id, { suspended: !g.suspended }).then(() => {
+                                        getBookings().then(setBookings);
+                                        setGroomersRefresh((r) => r + 1);
+                                      });
                                     }}
                                     className={`px-2 py-1 rounded text-xs font-medium ${
                                       g.suspended ? "bg-green-600 text-white hover:bg-green-700" : "bg-red-600 text-white hover:bg-red-700"
@@ -1219,7 +1218,7 @@ export default function AdminPage() {
                             return;
                           }
                           const h = await hashPassword(groomerPwInput);
-                          updateGroomer(groomerPwModal.id, { passwordHash: h, passwordPlain: groomerPwInput });
+                          await updateGroomer(groomerPwModal.id, { passwordHash: h, passwordPlain: groomerPwInput });
                           setGroomerPwModal(null);
                           setGroomerPwInput("");
                           setGroomersRefresh((k) => k + 1);
@@ -1891,12 +1890,13 @@ export default function AdminPage() {
                   return (
                     <div className="space-y-3">
                       {targetUnsettled.map((b) => {
-                        const fee = calcCommission(b.price ?? 0, commissionRate);
-                        const toGroomer = (b.price ?? 0) - fee;
-                        const handleSettleOne = () => {
+                        const st = svcTotal(b);
+                        const fee = calcCommission(st, commissionRate);
+                        const toGroomer = calcSettlementAmount(st, commissionRate);
+                        const handleSettleOne = async () => {
                           if (!confirm(`정산금액 ${toGroomer.toLocaleString()}원 입금 완료 후 정산완료 처리합니다.`)) return;
-                          updateBooking(b.id, { settlementStatus: "settled" });
-                          setBookings(getBookings());
+                          await updateBooking(b.id, { settlementStatus: "settled" });
+                          getBookings().then(setBookings);
                           alert("정산완료 처리되었습니다.");
                         };
                         return (
@@ -1910,7 +1910,7 @@ export default function AdminPage() {
                             </div>
                             <div className="flex items-center gap-3">
                               <div className="text-right text-sm">
-                                <span className="text-gray-600">매출 {(b.price ?? 0).toLocaleString()}원</span>
+                                <span className="text-gray-600">매출 {svcTotal(b).toLocaleString()}원</span>
                                 <span className="mx-2">→</span>
                                 <span className="text-blue-600">수수료 {fee.toLocaleString()}원</span>
                                 <span className="mx-2">→</span>
@@ -1938,7 +1938,7 @@ export default function AdminPage() {
                     {Array.from(new Set(unsettled.map((b) => b.groomerId))).filter(Boolean).map((gid) => {
                       const g = groomers.find((x) => x.id === gid);
                       const count = unsettled.filter((b) => b.groomerId === gid).length;
-                      const amount = unsettled.filter((b) => b.groomerId === gid).reduce((s, b) => s + calcSettlementAmount(b.price ?? 0, commissionRate), 0);
+                      const amount = unsettled.filter((b) => b.groomerId === gid).reduce((s, b) => s + calcSettlementAmount(svcTotal(b), commissionRate), 0);
                       return (
                         <button
                           key={gid}
@@ -1955,12 +1955,12 @@ export default function AdminPage() {
               {settlementFilterGroomer !== "all" && (() => {
                 const targetGroomer = groomers.find((g) => g.id === settlementFilterGroomer) as GroomerProfile | undefined;
                 const targetUnsettled = unsettled.filter((b) => b.groomerId === settlementFilterGroomer);
-                const totalToTransfer = targetUnsettled.reduce((s, b) => s + calcSettlementAmount(b.price ?? 0, commissionRate), 0);
+                const totalToTransfer = targetUnsettled.reduce((s, b) => s + calcSettlementAmount(svcTotal(b), commissionRate), 0);
                 const hasBankInfo = targetGroomer?.bankName && targetGroomer?.accountNumber && targetGroomer?.accountHolder;
-                const handleSettleAll = () => {
+                const handleSettleAll = async () => {
                   if (!confirm(`총 ${totalToTransfer.toLocaleString()}원을 입금하셨나요?\n\n입금 완료 후 정산완료 처리됩니다.`)) return;
-                  targetUnsettled.forEach((b) => updateBooking(b.id, { settlementStatus: "settled" }));
-                  setBookings(getBookings());
+                  await Promise.all(targetUnsettled.map((b) => updateBooking(b.id, { settlementStatus: "settled" })));
+                  getBookings().then(setBookings);
                   alert("정산완료 처리되었습니다.");
                 };
                 return (
@@ -2008,8 +2008,9 @@ export default function AdminPage() {
                   return (
                     <div className="space-y-3">
                       {targetSettled.map((b) => {
-                        const fee = calcCommission(b.price ?? 0, commissionRate);
-                        const toGroomer = (b.price ?? 0) - fee;
+                        const st = svcTotal(b);
+                        const fee = calcCommission(st, commissionRate);
+                        const toGroomer = calcSettlementAmount(st, commissionRate);
                         return (
                           <div key={b.id} className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
                             <div>
@@ -2017,7 +2018,7 @@ export default function AdminPage() {
                               <span className="text-sm text-gray-600 ml-2">{b.date} {b.time} · {b.groomerName}</span>
                             </div>
                             <div className="text-right text-sm">
-                              <span className="text-gray-600">매출 {(b.price ?? 0).toLocaleString()}원</span>
+                              <span className="text-gray-600">매출 {svcTotal(b).toLocaleString()}원</span>
                               <span className="mx-2">→</span>
                               <span className="text-blue-600">수수료 {fee.toLocaleString()}원</span>
                               <span className="mx-2">→</span>
@@ -2409,7 +2410,7 @@ export default function AdminPage() {
                       onChange={(e) => setSettings((s) => ({ ...s, commissionRate: parseFloat(e.target.value) || 0 }))}
                       className="w-full px-4 py-2 rounded-lg border border-gray-200"
                     />
-                    <p className="text-xs text-gray-500 mt-1">서비스완료 건에 대해 디자이너 매출의 일정 비율을 수수료로 차감합니다</p>
+                    <p className="text-xs text-gray-500 mt-1">서비스총액(포인트 할인 전) 기준 수수료. 고객 포인트 사용은 정산에서 제외됩니다.</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">플랫폼명</label>

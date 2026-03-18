@@ -51,12 +51,23 @@ export function saveAdminSettings(settings: Partial<AdminSettings>): boolean {
   }
 }
 
-/** 정산금액 = 매출 - 수수료 */
-export function calcSettlementAmount(price: number, commissionRate: number): number {
-  const fee = Math.round(price * (commissionRate / 100));
-  return price - fee;
+/** 정산금액 = 서비스총액 - 수수료 (포인트는 정산에서 제외) */
+export function calcSettlementAmount(serviceTotal: number, commissionRate: number): number {
+  const fee = Math.round(serviceTotal * (commissionRate / 100));
+  return serviceTotal - fee;
 }
 
-export function calcCommission(price: number, commissionRate: number): number {
-  return Math.round(price * (commissionRate / 100));
+/** 디자이너 수수료 = 서비스총액 × 수수료율 */
+export function calcCommission(serviceTotal: number, commissionRate: number): number {
+  return Math.round(serviceTotal * (commissionRate / 100));
+}
+
+/** 정산용 서비스총액 (포인트 할인 전) - 기존 예약은 price+포인트할인액으로 역산 */
+export function getServiceTotalForSettlement(
+  booking: { price: number; pointsUsed?: number; serviceTotal?: number },
+  pointValueWon: number = 1
+): number {
+  if (booking.serviceTotal != null && booking.serviceTotal > 0) return booking.serviceTotal;
+  const pointsDiscount = (booking.pointsUsed ?? 0) * pointValueWon;
+  return booking.price + pointsDiscount;
 }
