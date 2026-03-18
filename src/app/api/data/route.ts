@@ -6,6 +6,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin, isSupabaseConfiguredServer } from "@/lib/supabase/admin";
 
+export const dynamic = "force-dynamic";
+
 function safeGetSupabase() {
   try {
     if (!isSupabaseConfiguredServer()) return null;
@@ -16,15 +18,15 @@ function safeGetSupabase() {
 }
 
 export async function GET(req: NextRequest) {
-  const supabase = safeGetSupabase();
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
-  }
-  const key = req.nextUrl.searchParams.get("key");
-  if (!key?.trim()) {
-    return NextResponse.json({ error: "key required" }, { status: 400 });
-  }
   try {
+    const supabase = safeGetSupabase();
+    if (!supabase) {
+      return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+    }
+    const key = req.nextUrl.searchParams.get("key");
+    if (!key?.trim()) {
+      return NextResponse.json({ error: "key required" }, { status: 400 });
+    }
     const { data, error } = await (supabase as any).from("app_data").select("value").eq("key", key).single();
     if (error) {
       if (error.code === "PGRST116") return NextResponse.json({ value: null });
@@ -42,11 +44,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = safeGetSupabase();
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
-  }
   try {
+    const supabase = safeGetSupabase();
+    if (!supabase) {
+      return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+    }
     const body = await req.json();
     const { key, value } = body as { key?: string; value?: unknown };
     if (!key || typeof key !== "string" || !key.trim()) {

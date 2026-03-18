@@ -8,11 +8,18 @@ let _client: ReturnType<typeof createClient> | null = null;
 
 export function getSupabaseAdmin() {
   if (_client) return _client;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) throw new Error("Supabase env not configured");
-  _client = createClient(url, key);
-  return _client;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+  if (!url || !key || !url.startsWith("http")) {
+    throw new Error("Supabase env not configured");
+  }
+  try {
+    _client = createClient(url, key);
+    return _client;
+  } catch (e) {
+    _client = null;
+    throw e;
+  }
 }
 
 export function isSupabaseConfiguredServer(): boolean {
