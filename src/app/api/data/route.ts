@@ -1,12 +1,23 @@
 /**
  * app_data 키-값 저장 API
  * PC/모바일 실시간 동기화용 - Supabase app_data 테이블 사용
+ * Supabase 미설정/실패 시 503 → 클라이언트는 localStorage 폴백
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin, isSupabaseConfiguredServer } from "@/lib/supabase/admin";
 
+function safeGetSupabase() {
+  try {
+    if (!isSupabaseConfiguredServer()) return null;
+    return getSupabaseAdmin();
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(req: NextRequest) {
-  if (!isSupabaseConfiguredServer()) {
+  const supabase = safeGetSupabase();
+  if (!supabase) {
     return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
   }
   const key = req.nextUrl.searchParams.get("key");
@@ -14,22 +25,25 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "key required" }, { status: 400 });
   }
   try {
-    const supabase = getSupabaseAdmin();
     const { data, error } = await (supabase as any).from("app_data").select("value").eq("key", key).single();
     if (error) {
-      if (error.code === "PGRST116") return NextResponse.json({ value: null }); // not found
+      if (error.code === "PGRST116") return NextResponse.json({ value: null });
+      if (error.code === "42P01" || error.message?.includes("does not exist")) {
+        return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+      }
       throw error;
     }
     const row = data as { value?: unknown } | null;
     return NextResponse.json({ value: row?.value ?? null });
   } catch (e) {
     console.error("[api/data GET]", e);
-    return NextResponse.json({ error: "Failed to fetch" }, { status: 500 });
+    return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
   }
 }
 
 export async function POST(req: NextRequest) {
-  if (!isSupabaseConfiguredServer()) {
+  const supabase = safeGetSupabase();
+  if (!supabase) {
     return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
   }
   try {
@@ -38,14 +52,18 @@ export async function POST(req: NextRequest) {
     if (!key || typeof key !== "string" || !key.trim()) {
       return NextResponse.json({ error: "key required" }, { status: 400 });
     }
-    const supabase = getSupabaseAdmin();
     const { error } = await (supabase as any)
       .from("app_data")
       .upsert({ key: key.trim(), value: value ?? {}, updated_at: new Date().toISOString() }, { onConflict: "key" });
-    if (error) throw error;
+    if (error) {
+      if (error.code === "42P01" || error.message?.includes("does not exist")) {
+        return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+      }
+      throw error;
+    }
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("[api/data POST]", e);
-    return NextResponse.json({ error: "Failed to save" }, { status: 500 });
+    return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
   }
 }
