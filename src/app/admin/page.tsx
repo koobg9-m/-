@@ -9,6 +9,7 @@ import { SERVICE_DEFS, getServicePrices, saveServicePrices, getServicePricesLega
 import { hashPassword, verifyPassword } from "@/lib/auth-utils";
 import { setAdminAuthCookie, clearAdminAuthCookie, hasAdminAuthCookie } from "@/lib/admin-auth-cookie";
 import { getAdminSettings, saveAdminSettings, calcCommission, calcSettlementAmount, getServiceTotalForSettlement } from "@/lib/admin-settings";
+import { downloadSettlementExcel } from "@/lib/settlement-excel";
 import { checkAndSendGroomingReminders } from "@/lib/grooming-reminder";
 import { getPointSettings, savePointSettings, getCustomerPoints, setCustomerPoints, type PointSettings } from "@/lib/point-storage";
 import { getSmsTemplates, saveSmsTemplates, getSmsLog, addSmsLog, fillTemplate, type SmsTemplate } from "@/lib/notification-storage";
@@ -1814,7 +1815,7 @@ export default function AdminPage() {
                   <li><strong>정산완료 처리</strong> – 입금 완료 후 &quot;정산완료&quot; 버튼을 클릭합니다.</li>
                 </ol>
               </div>
-              <div className="flex flex-wrap gap-2 mb-4">
+              <div className="flex flex-wrap gap-2 mb-4 items-center">
                 <select
                   value={settlementFilterGroomer}
                   onChange={(e) => setSettlementFilterGroomer(e.target.value)}
@@ -1825,6 +1826,13 @@ export default function AdminPage() {
                     <option key={g.id} value={g.id}>{g.name}</option>
                   ))}
                 </select>
+                <button
+                  type="button"
+                  onClick={() => downloadSettlementExcel(completedBookings, unsettled, settled, groomers, bookingsByGroomer, commissionRate, pointValueWon)}
+                  className="px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition-colors"
+                >
+                  📥 엑셀 다운로드
+                </button>
               </div>
               <div className="grid md:grid-cols-3 gap-4">
                 <div className="p-6 bg-amber-50 rounded-xl border border-amber-200">
@@ -1970,6 +1978,14 @@ export default function AdminPage() {
                       <li>아래 입금 정보로 디자이너 계좌에 <strong className="text-mimi-orange">{totalToTransfer.toLocaleString()}원</strong> 입금</li>
                       <li>입금 완료 후 &quot;입금 완료 · 정산완료 처리&quot; 버튼 클릭</li>
                     </ol>
+                    {(settings.settlementBankName || settings.settlementAccountNumber) && (
+                      <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 mb-3">
+                        <p className="text-xs text-gray-500 mb-2">보낼 계좌 (송금 출금)</p>
+                        <p className="font-medium">{settings.settlementBankName ?? ""}</p>
+                        <p className="text-gray-800">{settings.settlementAccountNumber ?? ""}</p>
+                        <p className="text-sm text-gray-600">예금주: {settings.settlementAccountHolder ?? ""}</p>
+                      </div>
+                    )}
                     {hasBankInfo ? (
                       <div className="p-4 bg-blue-50 rounded-lg border border-blue-100 mb-4">
                         <p className="text-xs text-gray-500 mb-2">입금 정보 ({targetGroomer?.name})</p>
@@ -2432,6 +2448,42 @@ export default function AdminPage() {
                       className="w-full px-4 py-2 rounded-lg border border-gray-200"
                     />
                     <p className="text-xs text-gray-500 mt-1">정산 주기 설정 (참고용)</p>
+                  </div>
+                  <div className="pt-4 border-t border-gray-200">
+                    <h3 className="text-sm font-bold text-gray-800 mb-3">보낼 계좌 (송금 출금 계좌)</h3>
+                    <p className="text-xs text-gray-500 mb-3">정산 시 디자이너에게 송금할 때 사용하는 플랫폼 계좌입니다.</p>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">은행</label>
+                        <input
+                          type="text"
+                          value={settings.settlementBankName ?? ""}
+                          onChange={(e) => setSettings((s) => ({ ...s, settlementBankName: e.target.value }))}
+                          className="w-full px-4 py-2 rounded-lg border border-gray-200"
+                          placeholder="예: 국민은행"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">계좌번호</label>
+                        <input
+                          type="text"
+                          value={settings.settlementAccountNumber ?? ""}
+                          onChange={(e) => setSettings((s) => ({ ...s, settlementAccountNumber: e.target.value }))}
+                          className="w-full px-4 py-2 rounded-lg border border-gray-200"
+                          placeholder="예: 123-456-789012"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">예금주</label>
+                        <input
+                          type="text"
+                          value={settings.settlementAccountHolder ?? ""}
+                          onChange={(e) => setSettings((s) => ({ ...s, settlementAccountHolder: e.target.value }))}
+                          className="w-full px-4 py-2 rounded-lg border border-gray-200"
+                          placeholder="예: (주)미미살롱펫"
+                        />
+                      </div>
+                    </div>
                   </div>
                   <div>
                     <label className="flex items-center gap-2 cursor-pointer">

@@ -9,6 +9,10 @@ export type AdminSettings = {
   platformName?: string;
   /** 정산 주기 (일 단위, 예: 7 = 주 1회) */
   settlementCycleDays?: number;
+  /** 보낼 계좌 (송금 출금 계좌) - 정산 시 사용하는 플랫폼 계좌 */
+  settlementBankName?: string;
+  settlementAccountNumber?: string;
+  settlementAccountHolder?: string;
   /** VAT 포함 여부 */
   vatIncluded?: boolean;
   /** SMS API 연동 여부 (실제 발송용) */
