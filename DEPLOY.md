@@ -1,75 +1,92 @@
-# mimisalon.pet 배포 가이드
+# 미미살롱펫 배포 가이드
 
-## 1단계: Vercel에 배포
+## 근본적 해결: 로컬 → Vercel 직접 배포
 
-### 방법 A: Vercel 웹사이트에서 (추천)
-
-1. **Vercel 가입**: https://vercel.com (GitHub 계정으로 로그인 권장)
-
-2. **프로젝트 업로드**
-   - "Add New..." → "Project" 클릭
-   - MimiSalonPet 폴더를 GitHub에 올린 후 연결하거나
-   - "Import Third-Party Git Repository" 대신 **로컬 폴더를 드래그**해서 업로드
-
-3. **GitHub 사용 시** (권장)
-   ```bash
-   cd MimiSalonPet
-   git init
-   git add .
-   git commit -m "Initial commit"
-   # GitHub에 새 저장소 생성 후
-   git remote add origin https://github.com/사용자명/MimiSalonPet.git
-   git push -u origin main
-   ```
-   - Vercel → "Import Project" → GitHub 저장소 선택
-
-4. **환경 변수 설정** (Vercel 프로젝트 설정 → Environment Variables)
-   - `NEXT_PUBLIC_SUPABASE_URL` (실제 Supabase URL, 없으면 데모 모드)
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (실제 키)
-   - **`NEXT_PUBLIC_DEMO_AUTH` = `true`** ← 로그인 동작을 위해 권장 (Supabase 휴대폰 인증 미설정 시 필수)
-
-5. **Deploy** 클릭 → 배포 완료 후 `xxx.vercel.app` 주소 확인
+GitHub 연동 문제 없이 **로컬에서 바로 Vercel로 배포**하는 방법입니다.
 
 ---
 
-### 방법 B: Vercel CLI로
+## 1. Vercel CLI로 직접 배포 (권장)
 
-```bash
-cd MimiSalonPet
-npm i -g vercel
-vercel login
-vercel
+### 1단계: Vercel 로그인 (최초 1회)
+
+```powershell
+npx vercel login
 ```
 
----
+브라우저가 열리면 로그인 후 이메일 인증을 완료하세요.
 
-## 2단계: mimisalon.pet 도메인 연결
+### 2단계: 배포 실행
 
-1. Vercel 대시보드 → 프로젝트 선택 → **Settings** → **Domains**
+```powershell
+cd c:\Users\미미살롱펫2\Desktop\mimisalon
+npm run deploy
+```
 
-2. **Add** 클릭 → `mimisalon.pet` 입력
+- `npm run deploy` = 빌드 후 Vercel 프로덕션 배포
+- `npm run deploy:force` = 캐시 삭제 후 다시 빌드·배포
 
-3. Vercel이 DNS 설정 방법을 안내합니다:
-   - **A 레코드**: `76.76.21.21` (Vercel IP)
-   - **CNAME**: `cname.vercel-dns.com`
+### 3단계: 프로젝트 연결 (최초 1회)
 
-4. **도메인 구매처**에서 DNS 설정
-   - **GoDaddy 사용 시**: `GODADDY_DOMAIN.md` 참고
+처음 실행 시 Vercel이 물어봅니다:
 
-5. 전파에 **몇 분~24시간** 걸릴 수 있습니다.
-
----
-
-## 3단계: HTTPS (자동)
-
-Vercel이 `mimisalon.pet`에 대해 **자동으로 SSL 인증서**를 발급합니다. 별도 설정 불필요.
+- **Set up and deploy?** → Y
+- **Which scope?** → 본인 계정 선택
+- **Link to existing project?** → Y (mimisalon이 있으면)
+- **Project name** → mimisalon
 
 ---
 
-## 체크리스트
+## 2. GitHub 푸시 후 자동 배포 (연동 시)
 
-- [ ] Vercel 배포 완료
-- [ ] `xxx.vercel.app` 접속 확인
-- [ ] mimisalon.pet 도메인 추가
-- [ ] DNS 설정 완료
-- [ ] https://mimisalon.pet 접속 확인
+GitHub 연동이 되어 있다면:
+
+```powershell
+git add .
+git commit -m "메시지"
+git push origin main
+```
+
+Vercel이 자동으로 배포합니다.
+
+### 연동이 안 될 때 확인
+
+1. [Vercel 대시보드](https://vercel.com/dashboard) → mimisalon 프로젝트
+2. **Settings** → **Git**
+3. **Connected Git Repository**가 `koobg9-m/-` 인지 확인
+4. **Production Branch**가 `main` 인지 확인
+5. **Disconnect** 후 **Reconnect**로 다시 연결
+
+---
+
+## 3. GitHub 저장소 이름 변경 (선택)
+
+저장소 이름 `-`가 문제일 수 있다면:
+
+1. GitHub → 저장소 **Settings** → **General**
+2. **Repository name**을 `mimisalon`으로 변경
+3. 로컬에서 remote 업데이트:
+
+```powershell
+git remote set-url origin https://github.com/koobg9-m/mimisalon.git
+git push -u origin main
+```
+
+4. Vercel에서 새 저장소로 다시 연결
+
+---
+
+## 4. 배포 확인
+
+배포 후:
+
+- **https://mimisalon.vercel.app/api/version** → `{"version":"v2.2",...}` 확인
+- **https://mimisalon.vercel.app/** → 푸터에 v2.2 표시 확인
+
+---
+
+## 요약
+
+| 방법 | 명령어 | 비고 |
+|------|--------|------|
+| **직접 배포** | `npm run deploy` | 가장 확실 |

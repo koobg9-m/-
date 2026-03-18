@@ -9,6 +9,7 @@ const API = "/api/data";
 
 function isSupabaseConfigured(): boolean {
   if (typeof window === "undefined") return false;
+  if (process.env.NEXT_PUBLIC_SKIP_SUPABASE === "1") return false;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
   return !!url && !!key && url.startsWith("http");
