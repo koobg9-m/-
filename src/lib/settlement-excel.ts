@@ -2,6 +2,7 @@
 
 import type { GroomerProfile } from "./groomer-types";
 import { calcCommission, calcSettlementAmount, getServiceTotalForSettlement } from "./admin-settings";
+import * as XLSX from "xlsx";
 
 /** 정산 엑셀용 예약 타입 (groomerId 등 선택 필드 허용) */
 type BookingLike = { date?: string; time?: string; groomerName?: string; serviceName?: string; customerName?: string; customerPhone?: string; address?: string; price: number; pointsUsed?: number; serviceTotal?: number };
@@ -24,7 +25,6 @@ export async function downloadSettlementExcel(
   commissionRate: number,
   pointValueWon: number
 ) {
-  const XLSX = await import("xlsx");
   const svcTotal = (b: BookingLike) => getServiceTotalForSettlement(b, pointValueWon);
 
   const wb = XLSX.utils.book_new();
