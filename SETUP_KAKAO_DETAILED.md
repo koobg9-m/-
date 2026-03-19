@@ -41,7 +41,7 @@ https://cykzrqbifpvuwdsbzyzy.supabase.co/auth/v1/callback
 
 **로컬 테스트 시 추가:**
 ```
-http://localhost:3000/auth/callback
+http://localhost:5006/auth/callback
 ```
 ※ 주의: 로컬에서 테스트할 때만. 프로덕션에서는 Supabase callback만 사용.
 
@@ -77,7 +77,7 @@ https://mimisalon.vercel.app/auth/callback
 ```
 
 ```
-http://localhost:3000/auth/callback
+http://localhost:5006/auth/callback
 ```
 
 4. **Site URL** 확인:
@@ -102,7 +102,7 @@ https://cykzrqbifpvuwdsbzyzy.supabase.co/auth/v1/callback
 ### Supabase Redirect URLs에 넣을 URL (2개)
 ```
 https://mimisalon.vercel.app/auth/callback
-http://localhost:3000/auth/callback
+http://localhost:5006/auth/callback
 ```
 
 ---
