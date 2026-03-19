@@ -4,26 +4,38 @@
 
 ---
 
-## 흐름
+## ⭐ 로컬과 서버가 다를 때 (가장 중요)
 
-```
-로컬 수정 (localhost:5006) → GitHub push → Vercel 자동 배포 → 서버에 반영
-```
-
-1. **로컬에서 수정** 후 http://localhost:5006 에서 확인
-2. **GitHub에 push** (아래 명령어)
-3. **2~3분 후** https://mimisalon.vercel.app 에서 동일한 화면 확인
-
----
-
-## 로컬 → GitHub push
+**`npm run sync`** 또는 **`npm run deploy`** 실행
 
 | 명령어 | 설명 |
 |--------|------|
-| `npm run push` | 변경사항 즉시 1회 push |
+| **`npm run sync`** | GitHub push + Vercel 배포 (로컬 → 서버 동기화) |
+| **`npm run deploy`** | 로컬 코드를 Vercel에 직접 배포 (가장 확실) |
+
+GitHub push만으로는 Vercel이 자동 배포하지 않을 수 있습니다. **`npm run deploy`**가 로컬 코드를 서버에 직접 올립니다.
+
+---
+
+## 흐름
+
+```
+로컬 수정 (localhost:5006) → npm run sync 또는 deploy → 서버에 반영 (2~5분)
+```
+
+1. **로컬에서 수정** 후 http://localhost:5006 에서 확인
+2. **`npm run sync`** 또는 **`npm run deploy`** 실행
+3. **2~5분 후** https://mimisalon.vercel.app 에서 동일한 화면 확인
+
+---
+
+## 기타 명령어
+
+| 명령어 | 설명 |
+|--------|------|
+| `npm run push` | GitHub에만 push (Vercel 자동 배포 시) |
 | `npm run watch:push` | 파일 변경 감시 → 15초 후 자동 push |
-| `npm run dev:auto` | 개발 서버 + 자동 push 동시 실행 |
-| `deploy-push.bat` | Windows: add → commit → push 한 번에 |
+| `deploy-push.bat` | Windows: add → commit → push |
 
 ---
 

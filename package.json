@@ -18,7 +18,8 @@
     "vercel:remove-old": "node scripts/vercel-remove-old.js",
     "logo:transparent": "node scripts/remove-logo-bg.js",
     "push": "node scripts/auto-push.js",
-    "watch:push": "node scripts/auto-push.js --watch"
+    "watch:push": "node scripts/auto-push.js --watch",
+    "sync": "node scripts/auto-push.js && npm run deploy"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
