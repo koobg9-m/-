@@ -169,6 +169,7 @@ export default function AdminPage() {
   const [groomerDetailModal, setGroomerDetailModal] = useState<{ g: GroomerProfile; completed: number; avgRating: string | null; reviews: number } | null>(null);
   const [groomerSmsBody, setGroomerSmsBody] = useState("");
   const [syncStatus, setSyncStatus] = useState<{ ok: boolean; configured: boolean; error?: string } | null>(null);
+  const [serverRefreshLoading, setServerRefreshLoading] = useState(false);
 
   useEffect(() => {
     const run = () => {
@@ -846,13 +847,31 @@ export default function AdminPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    setGroomersRefresh((r) => r + 1);
-                    getSyncStatus().then(setSyncStatus);
+                  disabled={serverRefreshLoading}
+                  onClick={async () => {
+                    setServerRefreshLoading(true);
+                    try {
+                      const [bList, gList, newSettings] = await Promise.all([
+                        getBookings(),
+                        getGroomerProfiles(),
+                        getAdminSettingsAsync(),
+                      ]);
+                      setBookings(bList);
+                      setGroomers(gList);
+                      setSettings(newSettings);
+                      const status = await getSyncStatus();
+                      setSyncStatus(status);
+                      setGroomersRefresh((r) => r + 1);
+                      alert("서버에서 새로고침 완료");
+                    } catch (e) {
+                      alert(`새로고침 실패: ${e instanceof Error ? e.message : String(e)}`);
+                    } finally {
+                      setServerRefreshLoading(false);
+                    }
                   }}
-                  className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium"
+                  className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  서버에서 새로고침
+                  {serverRefreshLoading ? "새로고침 중..." : "서버에서 새로고침"}
                 </button>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
