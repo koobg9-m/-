@@ -50,30 +50,11 @@ GitHub push만으로는 Vercel이 자동 배포하지 않을 수 있습니다. *
 
 ---
 
-## 방법 2: GitHub Actions (이미 설정됨)
+## 방법 2: GitHub Actions (선택)
 
-`.github/workflows/deploy.yml`이 추가되어 있습니다.  
-`main` 또는 `master` 브랜치에 push 시 자동으로 Vercel 프로덕션에 배포됩니다.
+GitHub Actions는 **push 시 자동 실행 비활성화** 상태입니다. (Secrets 미설정 시 실패 이메일 방지)
 
-### 필수 설정: GitHub Secrets
-
-GitHub 저장소 → **Settings** → **Secrets and variables** → **Actions**에서 아래 시크릿을 추가하세요.
-
-| Secret 이름 | 설명 | 얻는 방법 |
-|-------------|------|-----------|
-| `VERCEL_TOKEN` | Vercel API 토큰 | [vercel.com/account/tokens](https://vercel.com/account/tokens) → Create |
-| `VERCEL_ORG_ID` | 팀/계정 ID | 프로젝트 루트에서 `vercel` 실행 후 `.vercel/project.json`의 `orgId` |
-| `VERCEL_PROJECT_ID` | 프로젝트 ID | `.vercel/project.json`의 `projectId` |
-
-### VERCEL_ORG_ID, VERCEL_PROJECT_ID 확인
-
-```bash
-# 프로젝트 폴더에서
-npx vercel link
-# 프롬프트에 따라 프로젝트 연결 후
-cat .vercel/project.json
-# orgId, projectId 값을 GitHub Secrets에 추가
-```
+배포는 **`npm run deploy`** 사용을 권장합니다.
 
 ---
 

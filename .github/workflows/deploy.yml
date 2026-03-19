@@ -1,9 +1,11 @@
 # main 브랜치에 push 시 Vercel 프로덕션 자동 배포
+# 비활성화: GitHub Secrets(VERCEL_TOKEN 등) 미설정 시 실패 → npm run deploy 사용
 name: Deploy to Vercel
 
 on:
-  push:
-    branches: [main, master]
+  workflow_dispatch:  # 수동 실행만 (push 시 자동 실행 비활성화)
+  # push:
+  #   branches: [main, master]
 
 jobs:
   deploy:
