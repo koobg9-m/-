@@ -8,12 +8,10 @@ export default function Hero() {
 
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-stone-50 via-mimi-cream to-amber-50/40 py-10 md:py-14">
-      {/* 장식 요소 */}
+      {/* 장식 요소 (밝은 원형 제거) */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-mimi-primary/5 blur-2xl" />
-        <div className="absolute -bottom-12 -left-12 w-40 h-40 rounded-full bg-mimi-accent/5 blur-2xl" />
-        <div className="absolute top-1/4 left-1/4 text-5xl opacity-[0.04]">🐕</div>
-        <div className="absolute bottom-1/4 right-1/4 text-4xl opacity-[0.04]">✨</div>
+        <div className="absolute top-1/4 left-1/4 text-5xl opacity-[0.03]">🐕</div>
+        <div className="absolute bottom-1/4 right-1/4 text-4xl opacity-[0.03]">✨</div>
       </div>
 
       <div className="page-container relative z-10 overflow-x-hidden">
