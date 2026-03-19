@@ -8,7 +8,7 @@ const nextConfig = {
   webpack: (config, { dev }) => {
     if (dev) {
       config.watchOptions = {
-        poll: 3000,
+        poll: 3000, // 3000ms = 3초 (파일 감시 간격, 포트 아님)
         aggregateTimeout: 600,
         ignored: /node_modules/,
       };
