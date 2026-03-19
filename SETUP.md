@@ -53,7 +53,7 @@ CREATE POLICY "Allow all for anon" ON app_data
 7. **Redirect URLs**에 추가:
    - `https://mimisalon.vercel.app/**`
    - `https://mimisalon.vercel.app/auth/callback`
-   - `http://localhost:5006/**` (로컬 개발용)
+   - `http://localhost:3000/**` (로컬 개발용)
 
 ---
 
