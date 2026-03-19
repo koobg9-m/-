@@ -50,6 +50,14 @@ type LoginMethod = "phone" | "email";
 
 export default function LoginForm() {
   const [logoError, setLogoError] = useState(false);
+  const [method, setMethod] = useState<LoginMethod>("phone");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [step, setStep] = useState<"input" | "otp" | "email_sent">("input");
+  const [otp, setOtp] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [rateLimitHit, setRateLimitHit] = useState(false);
 
   useEffect(() => {
     if (SKIP_CUSTOMER_AUTH && typeof window !== "undefined") {
@@ -66,14 +74,6 @@ export default function LoginForm() {
       </div>
     );
   }
-  const [method, setMethod] = useState<LoginMethod>("phone");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [step, setStep] = useState<"input" | "otp" | "email_sent">("input");
-  const [otp, setOtp] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [rateLimitHit, setRateLimitHit] = useState(false);
 
   const handlePhone = async (e: React.FormEvent) => {
     e.preventDefault();
