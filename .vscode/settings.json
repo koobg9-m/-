@@ -1,3 +1,5 @@
 {
-  "simpleBrowser.defaultURL": "http://localhost:5006"
+  "simpleBrowser.defaultURL": "http://localhost:5006",
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 1000
 }
