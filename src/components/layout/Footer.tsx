@@ -22,6 +22,7 @@ export default function Footer() {
               <li><Link href="/pricing" className="hover:text-mimi-gold transition-colors">요금 안내</Link></li>
               <li><Link href="/booking" className="hover:text-mimi-gold transition-colors">예약하기</Link></li>
               <li><Link href="/mypage" className="hover:text-mimi-gold transition-colors">마이페이지</Link></li>
+              <li><Link href="/qr" className="hover:text-mimi-gold transition-colors">QR코드</Link></li>
             </ul>
           </div>
           <div>
@@ -63,7 +64,7 @@ export default function Footer() {
             <p>연락처: 070-7651-9568 | 제휴·문의: <a href="mailto:koobg@naver.com" className="text-mimi-gold hover:underline">koobg@naver.com</a></p>
             <p>예약문의: <a href="tel:010-4546-2955" className="text-mimi-gold hover:underline font-medium">010-4546-2955</a></p>
           </div>
-          <p className="text-center text-stone-500 text-sm">© 2025 미미살롱펫 <span className="text-stone-600 font-medium">v2.3</span></p>
+          <p className="text-center text-stone-500 text-sm">© 2025 미미살롱펫 <span className="text-stone-600 font-medium">v2.4</span></p>
           <p className="text-center text-stone-500 text-xs mt-4 max-w-2xl mx-auto leading-relaxed">
             미미살롱펫은 통신판매중개자로서 통신판매의 당사자가 아니며, 디자이너가 등록한 상품정보 및 거래에 대해 책임을 지지 않습니다.
           </p>

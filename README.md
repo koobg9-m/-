@@ -37,13 +37,14 @@
 2. **Set up environment variables**
    - Copy `.env.example` to `.env.local`
    - Add your Supabase project URL and anon key
+   - **프로덕션 설정**: [SETUP.md](./SETUP.md) 참고 (Supabase, Auth, Vercel)
 
 3. **Run the development server**
    ```bash
    npm run dev
    ```
 
-4. Open [http://localhost:5006](http://localhost:5006) (포트 5006)
+4. Open [http://localhost:3000](http://localhost:3000) (포트 3000)
 
 ## 지도 API (선택, 거리 기반 매칭용)
 

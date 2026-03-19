@@ -19,8 +19,21 @@ function AuthCallbackContent() {
     const run = async () => {
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
+      const next = searchParams.get("next") ?? "/";
 
-      // 해시(#)에 토큰이 있으면 Supabase가 자동으로 세션 설정
+      // OAuth: code 파라미터가 있으면 exchangeCodeForSession (카카오 등)
+      const code = searchParams.get("code");
+      if (code) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        if (!exchangeError) {
+          router.replace(next);
+          return;
+        }
+        setError("인증 실패");
+        return;
+      }
+
+      // 해시(#)에 토큰이 있으면 Supabase가 자동으로 세션 설정 (이메일 링크 등)
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
       if (sessionError) {
@@ -29,7 +42,6 @@ function AuthCallbackContent() {
       }
 
       if (session) {
-        const next = searchParams.get("next") ?? "/";
         router.replace(next);
         return;
       }
@@ -39,7 +51,6 @@ function AuthCallbackContent() {
         await new Promise((r) => setTimeout(r, 500));
         const { data: { session: s2 } } = await supabase.auth.getSession();
         if (s2) {
-          const next = searchParams.get("next") ?? "/";
           router.replace(next);
           return;
         }
@@ -49,7 +60,8 @@ function AuthCallbackContent() {
     };
 
     run();
-  }, [router, searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- searchParams는 초기 로드 시에만 사용
+  }, []);
 
   if (error) {
     return (

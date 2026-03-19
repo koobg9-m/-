@@ -5,6 +5,8 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 
+const SKIP_CUSTOMER_AUTH = process.env.NEXT_PUBLIC_SKIP_CUSTOMER_AUTH === "true";
+
 export default function RequireAuth({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<{ phone?: string; email?: string } | null>(null);
   const [ready, setReady] = useState(false);
@@ -12,6 +14,11 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
   const pathname = usePathname();
 
   useEffect(() => {
+    if (SKIP_CUSTOMER_AUTH) {
+      setUser({ phone: "local" });
+      setReady(true);
+      return;
+    }
     const checkAuth = async () => {
       try {
         const stored = localStorage.getItem("mimi_demo_user");

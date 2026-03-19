@@ -5,11 +5,17 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 
+const SKIP_CUSTOMER_AUTH = process.env.NEXT_PUBLIC_SKIP_CUSTOMER_AUTH === "true";
+
 export default function HeaderNav() {
   const router = useRouter();
   const [user, setUser] = useState<{ phone?: string; email?: string } | null>(null);
 
   useEffect(() => {
+    if (SKIP_CUSTOMER_AUTH) {
+      setUser({ phone: "local" });
+      return;
+    }
     const checkAuth = async () => {
       try {
         const stored = localStorage.getItem("mimi_demo_user");
@@ -36,6 +42,10 @@ export default function HeaderNav() {
 
   const logout = async () => {
     try {
+      if (SKIP_CUSTOMER_AUTH) {
+        router.replace("/");
+        return;
+      }
       localStorage.removeItem("mimi_demo_user");
       if (isSupabaseConfigured()) {
         try {
@@ -59,7 +69,7 @@ export default function HeaderNav() {
       </Link>
       {user ? (
         <div className="flex items-center gap-4">
-          <span className="text-sm text-stone-500 truncate max-w-[140px]">{user.email ?? user.phone}</span>
+          <span className="text-sm text-stone-500 truncate max-w-[140px]">{user.phone === "local" ? "로컬" : (user.email ?? user.phone)}</span>
           <button
             onClick={logout}
             className="text-sm text-mimi-slate hover:text-mimi-primary transition-colors font-medium"

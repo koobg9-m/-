@@ -1,5 +1,7 @@
 "use client";
 
+import { fetchData, saveData } from "./data-sync";
+
 const ADMIN_SETTINGS_KEY = "mimi_admin_settings";
 
 export type AdminSettings = {
@@ -32,6 +34,19 @@ const DEFAULT: AdminSettings = {
   groomingReminderIntervalDays: 28,
 };
 
+export async function getAdminSettingsAsync(): Promise<AdminSettings> {
+  if (typeof window === "undefined") return DEFAULT;
+  try {
+    const fromApi = await fetchData<Partial<AdminSettings>>(ADMIN_SETTINGS_KEY);
+    const raw = localStorage.getItem(ADMIN_SETTINGS_KEY);
+    const fromLocal = raw ? JSON.parse(raw) : {};
+    const merged = { ...DEFAULT, ...fromLocal, ...fromApi };
+    return merged;
+  } catch {
+    return getAdminSettings();
+  }
+}
+
 export function getAdminSettings(): AdminSettings {
   if (typeof window === "undefined") return DEFAULT;
   try {
@@ -43,12 +58,25 @@ export function getAdminSettings(): AdminSettings {
   }
 }
 
+export async function saveAdminSettingsAsync(settings: Partial<AdminSettings>): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  try {
+    const current = getAdminSettings();
+    const merged = { ...current, ...settings };
+    localStorage.setItem(ADMIN_SETTINGS_KEY, JSON.stringify(merged));
+    return await saveData(ADMIN_SETTINGS_KEY, merged);
+  } catch {
+    return false;
+  }
+}
+
 export function saveAdminSettings(settings: Partial<AdminSettings>): boolean {
   if (typeof window === "undefined") return false;
   try {
     const current = getAdminSettings();
     const merged = { ...current, ...settings };
     localStorage.setItem(ADMIN_SETTINGS_KEY, JSON.stringify(merged));
+    saveData(ADMIN_SETTINGS_KEY, merged).catch(() => {});
     return true;
   } catch {
     return false;

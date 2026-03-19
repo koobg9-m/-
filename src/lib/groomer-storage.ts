@@ -63,6 +63,7 @@ export async function getGroomerProfiles(): Promise<GroomerProfile[]> {
   if (typeof window === "undefined") return [];
   const fromApi = await fetchData<GroomerProfile[]>(GROOMER_KEY);
   const list = fromApi ?? getFromLocal<GroomerProfile[]>(GROOMER_KEY, []);
+  if (fromApi != null) localStorage.setItem(GROOMER_KEY, JSON.stringify(fromApi));
   return normalizeList(list, mapGroomer);
 }
 
@@ -126,6 +127,7 @@ export async function getBookings(): Promise<Booking[]> {
   if (typeof window === "undefined") return [];
   const fromApi = await fetchData<Booking[]>(BOOKING_KEY);
   const list = fromApi ?? getFromLocal<Booking[]>(BOOKING_KEY, []);
+  if (fromApi != null) localStorage.setItem(BOOKING_KEY, JSON.stringify(fromApi));
   return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 

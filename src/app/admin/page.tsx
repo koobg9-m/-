@@ -8,7 +8,8 @@ import { getBookings, getGroomerProfiles, updateGroomer, updateBooking } from "@
 import { SERVICE_DEFS, getServicePrices, saveServicePrices, getServicePricesLegacy, getAdditionalFees, saveAdditionalFees, DEFAULT_ADDITIONAL_FEES, DEFAULT_PRICE_TABLE, type BreedType, type WeightTier, type AdditionalFeeItem } from "@/lib/services";
 import { hashPassword, verifyPassword } from "@/lib/auth-utils";
 import { setAdminAuthCookie, clearAdminAuthCookie, hasAdminAuthCookie } from "@/lib/admin-auth-cookie";
-import { getAdminSettings, saveAdminSettings, calcCommission, calcSettlementAmount, getServiceTotalForSettlement } from "@/lib/admin-settings";
+import { getAdminSettings, getAdminSettingsAsync, saveAdminSettings, calcCommission, calcSettlementAmount, getServiceTotalForSettlement } from "@/lib/admin-settings";
+import { getSyncStatus } from "@/lib/data-sync";
 import { downloadSettlementExcel } from "@/lib/settlement-excel";
 import { checkAndSendGroomingReminders } from "@/lib/grooming-reminder";
 import { getPointSettings, savePointSettings, getCustomerPoints, setCustomerPoints, type PointSettings } from "@/lib/point-storage";
@@ -167,17 +168,30 @@ export default function AdminPage() {
   const [groomerSort, setGroomerSort] = useState<"visits" | "rating" | "name" | "recent">("visits");
   const [groomerDetailModal, setGroomerDetailModal] = useState<{ g: GroomerProfile; completed: number; avgRating: string | null; reviews: number } | null>(null);
   const [groomerSmsBody, setGroomerSmsBody] = useState("");
+  const [syncStatus, setSyncStatus] = useState<{ ok: boolean; configured: boolean; error?: string } | null>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const hash = localStorage.getItem(ADMIN_PW_HASH_KEY);
-    const auth = sessionStorage.getItem(ADMIN_AUTH_KEY);
-    const hasCookie = hasAdminAuthCookie();
-    setIsSetup(!!hash);
-    // 쿠키 또는 sessionStorage로 인증 확인 (미들웨어 통과 = 쿠키 있음)
-    setAuthenticated(!!hash && (auth === "1" || hasCookie));
-    if (hasCookie && auth !== "1") sessionStorage.setItem(ADMIN_AUTH_KEY, "1");
-    setAuthChecked(true);
+    const run = () => {
+      try {
+        if (typeof window === "undefined") {
+          setAuthChecked(true);
+          return;
+        }
+        const hash = localStorage.getItem(ADMIN_PW_HASH_KEY);
+        const auth = sessionStorage.getItem(ADMIN_AUTH_KEY);
+        const hasCookie = hasAdminAuthCookie();
+        setIsSetup(!!hash);
+        setAuthenticated(!!hash && (auth === "1" || hasCookie));
+        if (hasCookie && auth !== "1") sessionStorage.setItem(ADMIN_AUTH_KEY, "1");
+      } catch {
+        // localStorage 등 접근 실패 시
+      } finally {
+        setAuthChecked(true);
+      }
+    };
+    run();
+    const t = setTimeout(() => setAuthChecked(true), 800);
+    return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
@@ -188,6 +202,14 @@ export default function AdminPage() {
   }, [tab, groomersRefresh]);
 
   useEffect(() => {
+    getAdminSettingsAsync().then(setSettings);
+  }, []);
+
+  useEffect(() => {
+    getSyncStatus().then(setSyncStatus);
+  }, []);
+
+  useEffect(() => {
     if (tab === "customers") {
       setSmsTemplates(getSmsTemplates());
       setSmsLog(getSmsLog());
@@ -195,7 +217,11 @@ export default function AdminPage() {
   }, [tab]);
 
   useEffect(() => {
-    setSettings(getAdminSettings());
+    if (tab === "settings") {
+      getAdminSettingsAsync().then(setSettings);
+    } else {
+      setSettings(getAdminSettings());
+    }
   }, [tab]);
 
   useEffect(() => {
@@ -739,8 +765,9 @@ export default function AdminPage() {
     return (
       <div className="min-h-screen flex flex-col bg-mimi-cream">
         <Header />
-        <main className="flex-1 flex items-center justify-center py-16">
+        <main className="flex-1 flex flex-col items-center justify-center py-16 gap-4">
           <p className="text-gray-500">로딩 중...</p>
+          <Link href="/admin/login" className="text-sm text-mimi-orange hover:underline">로그인 페이지로 이동</Link>
         </main>
         <Footer />
       </div>
@@ -803,6 +830,31 @@ export default function AdminPage() {
 
           {tab === "dashboard" && (
             <div className="space-y-8">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm ${!syncStatus ? "bg-gray-100 text-gray-600" : syncStatus.ok ? "bg-green-50 text-green-800" : "bg-amber-50 text-amber-800"}`}>
+                    <span>
+                      {!syncStatus
+                        ? "연동 확인 중..."
+                        : syncStatus.ok
+                          ? "✓ 서버 동기화 정상"
+                          : syncStatus.configured
+                            ? `⚠ ${syncStatus.error ?? "동기화 실패"}`
+                            : "Supabase 미설정"}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGroomersRefresh((r) => r + 1);
+                    getSyncStatus().then(setSyncStatus);
+                  }}
+                  className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium"
+                >
+                  서버에서 새로고침
+                </button>
+              </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="card p-5">
                   <p className="text-sm text-gray-500">총 예약</p>

@@ -11,6 +11,7 @@ type AuthState = {
 export const AuthContext = createContext<AuthState | null>(null);
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+const skipCustomerAuth = process.env.NEXT_PUBLIC_SKIP_CUSTOMER_AUTH === "true";
 const isDemoMode =
   process.env.NEXT_PUBLIC_DEMO_AUTH === "true" ||
   !supabaseUrl ||
@@ -23,6 +24,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    if (skipCustomerAuth) {
+      setUser({ phone: "local" });
+      setIsLoading(false);
+      return;
+    }
     if (isDemoMode) {
       try {
         const stored = localStorage.getItem("mimi_demo_user");
@@ -66,6 +72,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem("mimi_demo_user");
+    if (skipCustomerAuth) {
+      window.location.assign("/");
+      return;
+    }
     if (isDemoMode) {
       window.location.assign("/");
       return;
