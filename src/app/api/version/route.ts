@@ -4,7 +4,7 @@
  */
 import { NextResponse } from "next/server";
 
-const DEPLOY_VERSION = "v2.6";
+const DEPLOY_VERSION = "v2.7";
 const DEPLOY_TIME = "2026-03-20";
 
 export async function GET() {
