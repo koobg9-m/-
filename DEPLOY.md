@@ -17,6 +17,16 @@ GitHub push만으로는 Vercel이 자동 배포하지 않을 수 있습니다. *
 
 ---
 
+## ⚠️ 변경사항이 반영 안 될 때
+
+1. **배포 후 2~5분 대기** – 빌드 완료 전에 확인하면 이전 버전이 보입니다.
+2. **배포 확인** – https://mimisalon.vercel.app/api/version 접속해 버전이 올라갔는지 확인.
+3. **브라우저 강력 새로고침** – `Ctrl+Shift+R` (Windows) 또는 `Cmd+Shift+R` (Mac).
+4. **시크릿/InPrivate 모드**로 접속해 캐시 없이 확인.
+5. **Git 먼저 push** – Vercel이 Git과 연결되어 있으면, `git push` 후 `npm run deploy` 순서로 실행.
+
+---
+
 ## 흐름
 
 ```
@@ -26,6 +36,7 @@ GitHub push만으로는 Vercel이 자동 배포하지 않을 수 있습니다. *
 1. **로컬에서 수정** 후 http://localhost:5006 에서 확인
 2. **`npm run sync`** 또는 **`npm run deploy`** 실행
 3. **2~5분 후** https://mimisalon.vercel.app 에서 동일한 화면 확인
+4. **`/api/version`**으로 배포 버전 확인
 
 ---
 
