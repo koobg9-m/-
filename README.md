@@ -44,7 +44,7 @@
    npm run dev
    ```
 
-4. Open [http://localhost:3000](http://localhost:3000) (포트 3000)
+4. Open [http://localhost:5006](http://localhost:5006) (포트 5006)
 
 ## 지도 API (선택, 거리 기반 매칭용)
 

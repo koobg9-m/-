@@ -1,18 +1,29 @@
 # 자동 배포 설정
 
-코드를 GitHub에 push하면 서버(Vercel)가 자동으로 업그레이드됩니다.
+**로컬(5006) 화면 → 서버(mimisalon.vercel.app)에 반영**
 
 ---
 
-## 로컬 → GitHub 자동 push
+## 흐름
+
+```
+로컬 수정 (localhost:5006) → GitHub push → Vercel 자동 배포 → 서버에 반영
+```
+
+1. **로컬에서 수정** 후 http://localhost:5006 에서 확인
+2. **GitHub에 push** (아래 명령어)
+3. **2~3분 후** https://mimisalon.vercel.app 에서 동일한 화면 확인
+
+---
+
+## 로컬 → GitHub push
 
 | 명령어 | 설명 |
 |--------|------|
 | `npm run push` | 변경사항 즉시 1회 push |
 | `npm run watch:push` | 파일 변경 감시 → 15초 후 자동 push |
 | `npm run dev:auto` | 개발 서버 + 자동 push 동시 실행 |
-
-**자동 push 흐름**: 파일 수정 → 15초 대기 → git add/commit/push → GitHub Actions → Vercel 배포
+| `deploy-push.bat` | Windows: add → commit → push 한 번에 |
 
 ---
 
