@@ -4,13 +4,15 @@
  */
 import { NextResponse } from "next/server";
 
-const DEPLOY_VERSION = "v2.5";
-const DEPLOY_TIME = "2026-03-19";
+const DEPLOY_VERSION = "v2.6";
+const DEPLOY_TIME = "2026-03-20";
 
 export async function GET() {
-  return NextResponse.json({
+  const res = NextResponse.json({
     version: DEPLOY_VERSION,
     deployTime: DEPLOY_TIME,
     timestamp: new Date().toISOString(),
   });
+  res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+  return res;
 }
