@@ -24,6 +24,7 @@ GitHub push만으로는 Vercel이 자동 배포하지 않을 수 있습니다. *
 3. **브라우저 강력 새로고침** – `Ctrl+Shift+R` (Windows) 또는 `Cmd+Shift+R` (Mac).
 4. **시크릿/InPrivate 모드**로 접속해 캐시 없이 확인.
 5. **Git 먼저 push** – Vercel이 Git과 연결되어 있으면, `git push` 후 `npm run deploy` 순서로 실행.
+6. **Vercel 빌드 캐시 비활성화** – [Vercel 대시보드](https://vercel.com) → 프로젝트 → Settings → Environment Variables → `VERCEL_FORCE_NO_BUILD_CACHE` = `1` 추가 (Production).
 
 ---
 
