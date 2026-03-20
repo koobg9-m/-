@@ -22,15 +22,38 @@ export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false);
   const [hashReady, setHashReady] = useState(false);
   const [setupBlocked, setSetupBlocked] = useState(false);
+  const [authConfig, setAuthConfig] = useState<{
+    envPasswordAuth?: boolean;
+    hasPasswordHashInDb?: boolean;
+  }>({});
+
+  const isProduction = process.env.NODE_ENV === "production";
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      let cfg: { envPasswordAuth?: boolean; hasPasswordHashInDb?: boolean } = {};
+      try {
+        cfg = await fetch("/api/admin-auth/config", { credentials: "include" }).then((r) => r.json());
+      } catch {
+        /* ignore */
+      }
+      if (cancelled) return;
+      setAuthConfig(cfg);
+
       const hash = await getAdminPasswordHash();
       if (cancelled) return;
       const hasHash = !!hash;
       setIsSetup(hasHash);
-      if (!hasHash && !isAdminSetupAllowed()) {
+
+      /** Vercel ADMIN_PASSWORD / Supabase 해시 / 로컬 해시 / 최초설정 허용 중 하나라도 있으면 폼 표시 */
+      const allowLogin =
+        hasHash ||
+        !!cfg.hasPasswordHashInDb ||
+        !!cfg.envPasswordAuth ||
+        isAdminSetupAllowed();
+
+      if (!allowLogin) {
         setSetupBlocked(true);
       }
       setHashReady(true);
@@ -40,22 +63,54 @@ export default function AdminLoginPage() {
     };
   }, []);
 
-  // 이미 로그인된 경우(쿠키 + 해시 있음) /admin으로
+  // 이미 로그인된 경우(쿠키) /admin으로
+  // 이 부분을 주석 처리하여 항상 로그인 화면이 표시되도록 합니다
+  /*
   useEffect(() => {
     if (!hashReady || setupBlocked) return;
     (async () => {
+      try {
+        const me = await fetch("/api/admin-auth/me", { credentials: "include" }).then((r) => r.json());
+        if (me?.ok) {
+          window.location.replace("/admin");
+          return;
+        }
+      } catch {
+        // ignore
+      }
       const hash = await getAdminPasswordHash();
       if (hasAdminAuthCookie() && hash) {
         window.location.replace("/admin");
       }
     })();
   }, [hashReady, setupBlocked]);
+  */
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError("");
     setLoading(true);
     try {
+      // 운영: Supabase에 동기화된 해시만 서버에서 검증 (로컬에서 부여한 비밀번호와 동일)
+      if (isProduction) {
+        const res = await fetch("/api/admin-auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ password: passwordInput }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          sessionStorage.setItem(ADMIN_AUTH_KEY, "1");
+          setAdminAuthCookie();
+          window.location.replace("/admin");
+          return;
+        }
+        setPasswordError(typeof data.error === "string" ? data.error : "로그인에 실패했습니다.");
+        return;
+      }
+
+      // 개발: 기존 — 클라이언트 해시 + 최초 설정
       const hash = await getAdminPasswordHash();
 
       if (hash) {
@@ -108,10 +163,12 @@ export default function AdminLoginPage() {
           <div className="w-full max-w-md card p-6 text-center">
             <h2 className="text-xl font-bold text-gray-800 mb-2">관리자 로그인</h2>
             <p className="text-sm text-gray-600 mb-4 leading-relaxed">
-              운영 서버에 관리자 비밀번호가 아직 등록되지 않았습니다. 최초 1회만 Vercel 환경 변수에{" "}
-              <code className="bg-stone-100 px-1 rounded text-xs">NEXT_PUBLIC_ALLOW_ADMIN_SETUP=1</code> 을
-              넣은 뒤 다시 이 페이지를 열어 비밀번호를 설정하세요. 설정 후에는{" "}
-              <code className="bg-stone-100 px-1 rounded text-xs">0</code>으로 바꾸거나 삭제하는 것을 권장합니다.
+              관리자 로그인 방법이 아직 없습니다. <strong>Vercel</strong> → Environment Variables 에{" "}
+              <code className="bg-stone-100 px-1 rounded text-xs">ADMIN_PASSWORD</code> 를 추가하고 재배포하거나,{" "}
+              <strong>PC(로컬)</strong>에서 <code className="bg-stone-100 px-1 rounded text-xs">npm run dev</code> 후{" "}
+              <code className="bg-stone-100 px-1 rounded text-xs">/admin/login</code> 에서 비밀번호를 설정해 Supabase에
+              올리세요. (또는 <code className="bg-stone-100 px-1 rounded text-xs">NEXT_PUBLIC_ALLOW_ADMIN_SETUP=1</code> 로
+              운영에서 최초 설정)
             </p>
             <a href="/" className="text-sm text-mimi-orange hover:underline">
               ← 홈으로
@@ -123,17 +180,28 @@ export default function AdminLoginPage() {
     );
   }
 
+  const title = isSetup || isProduction ? "관리자 로그인" : "관리자 비밀번호 설정";
+  const subtitle = isProduction
+    ? authConfig.envPasswordAuth
+      ? "Vercel에 설정한 ADMIN_PASSWORD 또는 로컬에서 등록한 비밀번호를 입력하세요."
+      : "로컬에서 등록한 관리자 비밀번호를 입력하세요 (Supabase에 동기화된 경우)."
+    : isSetup
+      ? "비밀번호를 입력하세요."
+      : "최초 1회, 관리자 비밀번호를 설정하세요.";
+
   return (
     <div className="min-h-screen flex flex-col bg-mimi-cream">
       <Header />
       <main className="flex-1 flex items-center justify-center py-16">
         <div className="w-full max-w-sm card p-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-2">
-            {isSetup ? "관리자 로그인" : "관리자 비밀번호 설정"}
-          </h2>
-          <p className="text-sm text-gray-600 mb-4">
-            {isSetup ? "비밀번호를 입력하세요." : "최초 1회, 관리자 비밀번호를 설정하세요."}
-          </p>
+          <h2 className="text-xl font-bold text-gray-800 mb-2">{title}</h2>
+          <p className="text-sm text-gray-600 mb-4">{subtitle}</p>
+          {isProduction && (
+            <p className="text-xs text-stone-500 mb-3 leading-relaxed">
+              운영에서는 <code className="text-[11px] bg-stone-100 px-1 rounded">ADMIN_PASSWORD</code>(Vercel) 또는
+              Supabase에 동기화된 비밀번호 중 하나로 로그인됩니다.
+            </p>
+          )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <input
               type="password"
@@ -142,7 +210,7 @@ export default function AdminLoginPage() {
                 setPasswordInput(e.target.value);
                 setPasswordError("");
               }}
-              placeholder={isSetup ? "비밀번호" : "6자 이상"}
+              placeholder={isProduction || isSetup ? "비밀번호" : "6자 이상"}
               className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none"
               autoFocus
               disabled={loading}
@@ -153,7 +221,7 @@ export default function AdminLoginPage() {
               disabled={loading}
               className="w-full py-3 bg-mimi-orange text-white rounded-xl font-bold disabled:opacity-60"
             >
-              {loading ? "확인 중..." : isSetup ? "로그인" : "설정 완료"}
+              {loading ? "확인 중..." : isProduction || isSetup ? "로그인" : "설정 완료"}
             </button>
           </form>
           <p className="mt-4 text-center">
