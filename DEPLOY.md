@@ -41,6 +41,20 @@ GitHub push만으로는 Vercel이 자동 배포하지 않을 수 있습니다. *
 
 ---
 
+## 홈 갤러리·추천 제품·공지·육아 노하우 (Supabase)
+
+**Supabase가 설정된 경우** (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` — `/api/data`는 이 조합만 사용, 코드에 `SUPABASE_SERVICE_ROLE_KEY` 없음) 위 콘텐츠는 `app_data` 테이블에 저장됩니다. Vercel·로컬 모두 **같은 프로젝트 URL·anon 키**여야 동기화됩니다.
+
+- **로컬과 운영(mimisalon.vercel.app)이 같은 Supabase 프로젝트**를 쓰면, 한쪽에서 저장한 내용이 다른 쪽에서도 새로고침 후 동일하게 보입니다.
+- 관리자 **「서버에서 새로고침」**으로 Supabase → 이 브라우저로 예약·디자이너·요금·포인트·SMS·플랫폼 설정·홈·공지를 다시 불러옵니다.
+- 로컬에서만 수정했고 서버에 한 번도 안 올라간 경우 운영과 다를 수 있습니다. 그때는 **「로컬→서버 업로드」**(대시보드)로 이 PC의 localStorage 내용을 Supabase에 덮어쓸 수 있습니다(다른 PC/운영 데이터가 덮어쓰일 수 있으니 확인 후 사용).
+- **로컬 자동 백업** (`npm run dev` 전용): `mimi_*` 데이터를 브라우저 **IndexedDB**에 주기적으로 스냅샷 저장합니다. 관리자 대시보드에서 최근 백업 복원·JSON 내보내기 가능. 끄려면 `.env.local`에 `NEXT_PUBLIC_LOCAL_AUTOBACKUP=0`.
+- **관리자 보안**: 관리자 비밀번호 해시는 **Supabase `app_data`** 와 동기화됩니다(브라우저마다 따로 ‘최초 설정’이 되던 문제 완화). 푸터 **「관리자」** 링크는 기본 **비노출**이며, 필요 시 Vercel에 `NEXT_PUBLIC_SHOW_ADMIN_LINK=1`. 운영에서 **최초** 비밀번호를 아직 못 올린 경우에만 `NEXT_PUBLIC_ALLOW_ADMIN_SETUP=1` 로 한 번 설정한 뒤 끄세요.
+- `app_data` 키 예: `mimi_homepage_content`, `mimi_tips_content`, `mimi_notices_content`, `mimi_groomer_profiles`, `mimi_bookings`, `mimi_service_prices`, `mimi_additional_fees`, `mimi_point_settings`, `mimi_customer_points`, `mimi_sms_templates`, `mimi_admin_settings` 등.
+- Supabase **Realtime**에서 `app_data`를 켜 두면 다른 탭/기기에서 변경 시 자동 반영에 가깝게 갱신됩니다.
+
+---
+
 ## 기타 명령어
 
 | 명령어 | 설명 |

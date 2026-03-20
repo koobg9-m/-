@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { getTips } from "@/lib/tips-notices-storage";
+import { getTips, hydrateTipsNoticesFromRemote, subscribeTipsNoticesRemote } from "@/lib/tips-notices-storage";
 
 const Header = dynamic(() => import("@/components/layout/Header"), { ssr: false });
 const Footer = dynamic(() => import("@/components/layout/Footer"), { ssr: false });
@@ -13,12 +13,23 @@ export default function TipsPage() {
 
   useEffect(() => {
     const refresh = () => setTips(getTips());
-    refresh();
+    let unsubRemote: (() => void) | undefined;
+    (async () => {
+      await hydrateTipsNoticesFromRemote();
+      refresh();
+      unsubRemote = subscribeTipsNoticesRemote(refresh);
+    })();
     window.addEventListener("storage", refresh);
     window.addEventListener("mimi_tips_notices_updated", refresh);
+    const onVisible = () => {
+      void hydrateTipsNoticesFromRemote().finally(refresh);
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
+      unsubRemote?.();
       window.removeEventListener("storage", refresh);
       window.removeEventListener("mimi_tips_notices_updated", refresh);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 

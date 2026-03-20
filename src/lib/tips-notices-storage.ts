@@ -1,7 +1,9 @@
 "use client";
 
-const TIPS_KEY = "mimi_tips_content";
-const NOTICES_KEY = "mimi_notices_content";
+import { fetchData, saveData, subscribeDataKey } from "./data-sync";
+
+export const TIPS_KEY = "mimi_tips_content";
+export const NOTICES_KEY = "mimi_notices_content";
 
 export type TipItem = {
   id: string;
@@ -62,6 +64,39 @@ function setStored<T>(key: string, val: T): boolean {
   }
 }
 
+/**
+ * Supabase에서 팁·공지를 가져와 localStorage에 반영.
+ */
+export async function hydrateTipsNoticesFromRemote(): Promise<void> {
+  if (typeof window === "undefined") return;
+  const [remoteTips, remoteNotices] = await Promise.all([
+    fetchData<TipItem[]>(TIPS_KEY),
+    fetchData<NoticeItem[]>(NOTICES_KEY),
+  ]);
+  if (remoteTips != null && Array.isArray(remoteTips)) {
+    const withOrder = remoteTips.map((t, i) => ({ ...t, order: t.order ?? i }));
+    setStored(TIPS_KEY, withOrder);
+  }
+  if (remoteNotices != null && Array.isArray(remoteNotices)) {
+    const withOrder = remoteNotices.map((n, i) => ({ ...n, order: n.order ?? i }));
+    setStored(NOTICES_KEY, withOrder);
+  }
+}
+
+/** Realtime: 팁 또는 공지 변경 시 */
+export function subscribeTipsNoticesRemote(onUpdate: () => void): () => void {
+  const u1 = subscribeDataKey(TIPS_KEY, () => {
+    void hydrateTipsNoticesFromRemote().finally(() => onUpdate());
+  });
+  const u2 = subscribeDataKey(NOTICES_KEY, () => {
+    void hydrateTipsNoticesFromRemote().finally(() => onUpdate());
+  });
+  return () => {
+    u1();
+    u2();
+  };
+}
+
 export function getTips(): TipItem[] {
   const stored = getStored<TipItem[]>(TIPS_KEY, []);
   if (stored.length === 0) return [...DEFAULT_TIPS];
@@ -70,7 +105,9 @@ export function getTips(): TipItem[] {
 
 export function saveTips(tips: TipItem[]): boolean {
   const withOrder = tips.map((t, i) => ({ ...t, order: i }));
-  return setStored(TIPS_KEY, withOrder);
+  const ok = setStored(TIPS_KEY, withOrder);
+  void saveData(TIPS_KEY, withOrder);
+  return ok;
 }
 
 export function addTip(item: Omit<TipItem, "id" | "order">): TipItem {
@@ -118,7 +155,9 @@ export function getNotices(): NoticeItem[] {
 
 export function saveNotices(notices: NoticeItem[]): boolean {
   const withOrder = notices.map((n, i) => ({ ...n, order: i }));
-  return setStored(NOTICES_KEY, withOrder);
+  const ok = setStored(NOTICES_KEY, withOrder);
+  void saveData(NOTICES_KEY, withOrder);
+  return ok;
 }
 
 export function addNotice(item: Omit<NoticeItem, "id" | "order">): NoticeItem {

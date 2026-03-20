@@ -1,5 +1,7 @@
 "use client";
 
+import { fetchData, saveData } from "./data-sync";
+
 const SMS_TEMPLATES_KEY = "mimi_sms_templates";
 const SMS_LOG_KEY = "mimi_sms_log";
 
@@ -43,6 +45,7 @@ export function saveSmsTemplates(templates: SmsTemplate[]): boolean {
   if (typeof window === "undefined") return false;
   try {
     localStorage.setItem(SMS_TEMPLATES_KEY, JSON.stringify(templates));
+    void saveData(SMS_TEMPLATES_KEY, templates);
     return true;
   } catch {
     return false;
@@ -64,7 +67,24 @@ export function addSmsLog(log: SmsLog): void {
   if (typeof window === "undefined") return;
   const list = getSmsLog(500);
   list.unshift(log);
-  localStorage.setItem(SMS_LOG_KEY, JSON.stringify(list.slice(0, 500)));
+  const trimmed = list.slice(0, 500);
+  localStorage.setItem(SMS_LOG_KEY, JSON.stringify(trimmed));
+  void saveData(SMS_LOG_KEY, trimmed);
+}
+
+/** Supabase에서 SMS 템플릿·로그 불러오기 */
+export async function hydrateNotificationFromRemote(): Promise<void> {
+  if (typeof window === "undefined") return;
+  const [templates, logs] = await Promise.all([
+    fetchData<SmsTemplate[]>(SMS_TEMPLATES_KEY),
+    fetchData<SmsLog[]>(SMS_LOG_KEY),
+  ]);
+  if (templates != null && Array.isArray(templates)) {
+    localStorage.setItem(SMS_TEMPLATES_KEY, JSON.stringify(templates));
+  }
+  if (logs != null && Array.isArray(logs)) {
+    localStorage.setItem(SMS_LOG_KEY, JSON.stringify(logs.slice(0, 500)));
+  }
 }
 
 /** 템플릿 변수 치환 */

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { getGroomerById, getGroomerProfiles, saveGroomerProfile, getBookings, updateBooking } from "@/lib/groomer-storage";
+import { getGroomerById, getGroomerProfiles, saveGroomerProfile, getBookings, updateBooking, buildAllServiceItemsForGroomer } from "@/lib/groomer-storage";
 import type { GroomerProfile, AvailableSlot, Booking } from "@/lib/groomer-types";
 import { verifyPassword } from "@/lib/auth-utils";
 
@@ -13,8 +13,7 @@ function formatBookingPets(b: { pets?: { name: string; species: string; healthCo
   }
   return `${b.petName} (${b.petType})${b.petHealthConditions ? ` · 지병: ${b.petHealthConditions}` : ""}${b.petIsAggressive ? " · ⚠️사나움" : ""}`;
 }
-import { SERVICE_DEFS, getServicePriceLegacy, TIME_SLOTS } from "@/lib/services";
-import { serviceToItem } from "@/lib/groomer-storage";
+import { TIME_SLOTS, hydrateServicesFromRemote } from "@/lib/services";
 import AddressSearchInput from "@/components/common/AddressSearchInput";
 import StarRating from "@/components/common/StarRating";
 
@@ -189,7 +188,10 @@ export default function GroomerPage() {
   };
 
   useEffect(() => {
-    loadProfile();
+    (async () => {
+      await hydrateServicesFromRemote();
+      await loadProfile();
+    })();
   }, []);
 
   useEffect(() => {
@@ -522,7 +524,7 @@ function GroomerDashboard({ profile, bookings, onRefresh }: { profile: GroomerPr
         )}
         {profile.intro && <p className="text-sm text-gray-600 mb-1">{profile.intro}</p>}
         {profile.career && <p className="text-xs text-gray-500">{profile.career}</p>}
-        <p className="text-sm text-gray-600 mt-2">{profile.address} · 반경 {profile.radiusKm}km · {profile.services.length}개 서비스</p>
+        <p className="text-sm text-gray-600 mt-2">{profile.address} · 반경 {profile.radiusKm}km · 전체 미용 서비스</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -730,20 +732,15 @@ function GroomerSetup({
     const v = Number(profile?.radiusKm) || 10;
     return [3, 5, 10, 15, 20, 30].includes(v) ? v : 10;
   });
-  const [selectedServices, setSelectedServices] = useState<string[]>(profile?.services?.map((s) => s.id) ?? []);
   const [slots, setSlots] = useState<AvailableSlot[]>(profile?.availableSlots ?? []);
   const [bankName, setBankName] = useState(profile?.bankName ?? "");
   const [accountNumber, setAccountNumber] = useState(profile?.accountNumber ?? "");
   const [accountHolder, setAccountHolder] = useState(profile?.accountHolder ?? "");
-  const [step, setStep] = useState<"info" | "services" | "slots">(profile ? "slots" : "info");
+  const [step, setStep] = useState<"info" | "slots">(profile ? "slots" : "info");
   const [profileEditTab, setProfileEditTab] = useState<"basic" | "slots">("basic");
 
-  const latestRef = useRef({ name, phone, email, birthDate, gender, intro, career, address, radiusKm, selectedServices, slots, bankName, accountNumber, accountHolder });
-  latestRef.current = { name, phone, email, birthDate, gender, intro, career, address, radiusKm, selectedServices, slots, bankName, accountNumber, accountHolder };
-
-  const toggleService = (id: string) => {
-    setSelectedServices((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  };
+  const latestRef = useRef({ name, phone, email, birthDate, gender, intro, career, address, radiusKm, slots, bankName, accountNumber, accountHolder });
+  latestRef.current = { name, phone, email, birthDate, gender, intro, career, address, radiusKm, slots, bankName, accountNumber, accountHolder };
 
   const addSlot = (date: string, times: string[]) => {
     if (!date || times.length === 0) return;
@@ -758,12 +755,9 @@ function GroomerSetup({
   };
 
   const handleSubmit = async () => {
-    const { name: n, phone: ph, email: em, birthDate: bd, gender: gen, intro: inr, career: car, address: a, radiusKm: r, selectedServices: svc, slots: sl, bankName: bn, accountNumber: an, accountHolder: ah } = latestRef.current;
-    const services = svc
-      .map((id) => serviceToItem(id))
-      .filter(Boolean)
-      .map((s) => ({ id: s!.id, name: s!.name, price: s!.price, duration: s!.duration }));
-    if (services.length === 0 || !n.trim() || !a.trim()) return;
+    const { name: n, phone: ph, email: em, birthDate: bd, gender: gen, intro: inr, career: car, address: a, radiusKm: r, slots: sl, bankName: bn, accountNumber: an, accountHolder: ah } = latestRef.current;
+    const services = buildAllServiceItemsForGroomer();
+    if (!n.trim() || !a.trim()) return;
     const id = profile?.id ?? `G${Date.now()}`;
     const addr = a.trim();
     const areaParts = addr.split(/\s+/).slice(0, 2).join(" ");
@@ -915,43 +909,12 @@ function GroomerSetup({
                 </div>
               </div>
               <button
-                onClick={() => setStep("services")}
+                onClick={() => setStep("slots")}
                 disabled={!name.trim() || !address.trim()}
                 className="w-full py-3 bg-mimi-orange text-white rounded-xl font-bold disabled:opacity-50"
               >
-                다음
+                다음 (가능 시간 설정)
               </button>
-            </div>
-          )}
-
-          {step === "services" && (
-            <div className="space-y-4">
-              <p className="text-gray-600">제공할 서비스를 선택하세요 (강아지 전용)</p>
-              {SERVICE_DEFS.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => toggleService(s.id)}
-                  className={`w-full p-4 rounded-xl border-2 text-left ${
-                    selectedServices.includes(s.id) ? "border-mimi-orange bg-mimi-orange/5" : "border-gray-200"
-                  }`}
-                >
-                  <div className="flex justify-between items-start">
-                    <span className="font-bold">{s.name}</span>
-                    <span className="text-xs text-gray-500 text-right">소형 {getServicePriceLegacy(s.id, "소형").toLocaleString()} / 중형 {getServicePriceLegacy(s.id, "중형").toLocaleString()} / 대형 {getServicePriceLegacy(s.id, "대형").toLocaleString()}원</span>
-                  </div>
-                  <p className="text-sm text-gray-600 mt-1">{s.description}</p>
-                </button>
-              ))}
-              <div className="flex gap-2">
-                <button onClick={() => setStep("info")} className="text-gray-500 text-sm">← 이전</button>
-                <button
-                  onClick={() => setStep("slots")}
-                  disabled={selectedServices.length === 0}
-                  className="flex-1 py-3 bg-mimi-orange text-white rounded-xl font-bold disabled:opacity-50"
-                >
-                  다음
-                </button>
-              </div>
             </div>
           )}
 
@@ -1076,7 +1039,7 @@ function GroomerSetup({
                   slots={slots}
                   onAdd={addSlot}
                   onRemove={removeSlot}
-                  onPrev={() => setStep("services")}
+                  onPrev={() => setStep("info")}
                   onSubmit={() => handleSubmit()}
                   requireSlots={true}
                   submitLabel="등록 완료"

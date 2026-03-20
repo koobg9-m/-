@@ -1,8 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { getAdditionalFees, getAdditionalFeePrice } from "@/lib/services";
+import { getAdditionalFees, getAdditionalFeePrice, hydrateServicesFromRemote } from "@/lib/services";
 import type { BreedType } from "@/lib/services";
 
 const Header = dynamic(() => import("@/components/layout/Header"), { ssr: false });
@@ -41,6 +42,11 @@ function AdditionalFeesSection({ breedType }: { breedType: BreedType }) {
 }
 
 export default function PricingPage() {
+  const [, setSynced] = useState(0);
+  useEffect(() => {
+    void hydrateServicesFromRemote().then(() => setSynced((n) => n + 1));
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col bg-mimi-cream">
       <Header />

@@ -47,6 +47,18 @@ export async function getAdminSettingsAsync(): Promise<AdminSettings> {
   }
 }
 
+/** Supabase 설정을 localStorage에 반영 (관리자·다른 탭과 동기화) */
+export async function hydrateAdminSettingsFromRemote(): Promise<void> {
+  if (typeof window === "undefined") return;
+  const fromApi = await fetchData<Partial<AdminSettings>>(ADMIN_SETTINGS_KEY);
+  if (fromApi != null && typeof fromApi === "object") {
+    const raw = localStorage.getItem(ADMIN_SETTINGS_KEY);
+    const fromLocal = raw ? JSON.parse(raw) : {};
+    const merged = { ...DEFAULT, ...fromLocal, ...fromApi };
+    localStorage.setItem(ADMIN_SETTINGS_KEY, JSON.stringify(merged));
+  }
+}
+
 export function getAdminSettings(): AdminSettings {
   if (typeof window === "undefined") return DEFAULT;
   try {

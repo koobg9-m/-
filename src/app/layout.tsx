@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import RootErrorBoundary from "@/components/RootErrorBoundary";
+import LocalBackupRunner from "@/components/LocalBackupRunner";
 
 export const metadata: Metadata = {
   title: "미미살롱펫 - 찾아가는 펫 미용 서비스",
@@ -21,7 +22,10 @@ export default function RootLayout({
   return (
     <html lang="ko" suppressHydrationWarning>
       <body suppressHydrationWarning className="antialiased">
-        <RootErrorBoundary>{children}</RootErrorBoundary>
+        <RootErrorBoundary>
+          <LocalBackupRunner />
+          {children}
+        </RootErrorBoundary>
       </body>
     </html>
   );

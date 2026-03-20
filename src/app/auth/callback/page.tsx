@@ -19,7 +19,7 @@ function AuthCallbackContent() {
     const run = async () => {
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
-      const next = searchParams.get("next") ?? "/";
+      const next = searchParams.get("next") ?? searchParams.get("redirect") ?? "/";
 
       // OAuth: code 파라미터가 있으면 exchangeCodeForSession (카카오 등)
       const code = searchParams.get("code");

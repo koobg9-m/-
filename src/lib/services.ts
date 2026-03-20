@@ -1,3 +1,7 @@
+"use client";
+
+import { fetchData, saveData } from "./data-sync";
+
 /** 견종 구분 (요금표 기준) */
 export type BreedType = "소형견" | "중형견" | "특수견";
 
@@ -78,7 +82,7 @@ export const DEFAULT_ADDITIONAL_FEES: AdditionalFeeItem[] = [
   { id: "aggressive_heavy", name: "엉킴/사나움 (특수견)", price: 20000, description: "특수견 기준" },
 ];
 
-const ADDITIONAL_FEES_KEY = "mimi_additional_fees";
+export const ADDITIONAL_FEES_KEY = "mimi_additional_fees";
 
 export function getAdditionalFees(): AdditionalFeeItem[] {
   if (typeof window === "undefined") return DEFAULT_ADDITIONAL_FEES;
@@ -93,6 +97,7 @@ export function getAdditionalFees(): AdditionalFeeItem[] {
 export function saveAdditionalFees(fees: AdditionalFeeItem[]): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(ADDITIONAL_FEES_KEY, JSON.stringify(fees));
+  void saveData(ADDITIONAL_FEES_KEY, fees);
 }
 
 /** 추가요금 항목의 가격 (견종별 가격 있으면 사용, 없으면 price) */
@@ -101,7 +106,7 @@ export function getAdditionalFeePrice(fee: AdditionalFeeItem, breedType?: BreedT
   return fee.price;
 }
 
-const SERVICE_PRICES_KEY = "mimi_service_prices";
+export const SERVICE_PRICES_KEY = "mimi_service_prices";
 
 export type WeightPrices = { 소형: number; 중형: number; 대형: number }; // 하위호환
 
@@ -134,9 +139,10 @@ export function getServicePrices(): Record<string, number> {
 export function saveServicePrices(prices: Record<string, number>) {
   if (typeof window === "undefined") return;
   localStorage.setItem(SERVICE_PRICES_KEY, JSON.stringify(prices));
+  void saveData(SERVICE_PRICES_KEY, prices);
 }
 
-const SERVICE_PRICES_LEGACY_KEY = "mimi_service_prices_legacy";
+export const SERVICE_PRICES_LEGACY_KEY = "mimi_service_prices_legacy";
 
 /** 관리자 3단계(소형/중형/대형) 오버라이드 조회 */
 export function getServicePricesLegacy(): Record<string, WeightPrices> {
@@ -153,6 +159,26 @@ export function getServicePricesLegacy(): Record<string, WeightPrices> {
 export function saveServicePricesLegacy(prices: Record<string, WeightPrices>) {
   if (typeof window === "undefined") return;
   localStorage.setItem(SERVICE_PRICES_LEGACY_KEY, JSON.stringify(prices));
+  void saveData(SERVICE_PRICES_LEGACY_KEY, prices);
+}
+
+/** Supabase에서 요금·추가요금 불러오기 */
+export async function hydrateServicesFromRemote(): Promise<void> {
+  if (typeof window === "undefined") return;
+  const [fees, prices, legacy] = await Promise.all([
+    fetchData<AdditionalFeeItem[]>(ADDITIONAL_FEES_KEY),
+    fetchData<Record<string, number>>(SERVICE_PRICES_KEY),
+    fetchData<Record<string, WeightPrices>>(SERVICE_PRICES_LEGACY_KEY),
+  ]);
+  if (fees != null && Array.isArray(fees)) {
+    localStorage.setItem(ADDITIONAL_FEES_KEY, JSON.stringify(fees));
+  }
+  if (prices != null && typeof prices === "object") {
+    localStorage.setItem(SERVICE_PRICES_KEY, JSON.stringify(prices));
+  }
+  if (legacy != null && typeof legacy === "object") {
+    localStorage.setItem(SERVICE_PRICES_LEGACY_KEY, JSON.stringify(legacy));
+  }
 }
 
 /** weightTier → 소형/중형/대형 근사 (관리자 레거시용) */

@@ -1,6 +1,10 @@
-# 휴대폰 번호 로그인 설정 (상세 가이드)
+# 휴대폰 번호 로그인 설정 (보관용 · 미사용)
 
-로그인 페이지의 **휴대폰** 탭에서 SMS 인증번호로 로그인하려면 **Twilio** + **Supabase** 설정이 필요합니다.
+> **현재 앱은 로그인에 휴대폰 SMS를 쓰지 않습니다.** (카카오 + 이메일만) 아래 내용은 Supabase Phone Provider를 직접 켜서 쓸 때를 위한 참고 자료입니다.
+
+---
+
+로그인에 SMS OTP를 쓰려면 **Twilio** + **Supabase** 설정이 필요합니다.
 
 ---
 
@@ -124,10 +128,12 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIs...
 
 ## 4단계: 확인 및 테스트
 
+> 현재 저장소의 로그인 UI에는 휴대폰 탭이 없습니다. Phone Provider를 다시 붙인 포크에서 아래 절차를 참고하세요.
+
 ### 4-1. 로그인 페이지 접속
 
-1. https://mimisalon.vercel.app/login 접속
-2. **휴대폰** 탭이 기본으로 선택됩니다
+1. 배포 URL 또는 `http://localhost:5000/login` 접속
+2. (Phone 로그인 UI가 있는 경우) **휴대폰** 방식 선택
 
 ### 4-2. SMS 인증 테스트
 

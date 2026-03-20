@@ -1,6 +1,6 @@
 "use client";
 
-import type { GroomerProfile, Booking } from "./groomer-types";
+import type { GroomerProfile, Booking, ServiceItem } from "./groomer-types";
 import { SERVICE_DEFS, getServicePrice } from "./services";
 import { fetchData, saveData } from "./data-sync";
 
@@ -23,18 +23,20 @@ export function serviceToItem(id: string) {
   return { id: s.id, name: s.name, price, duration: s.duration };
 }
 
+/** 디자이너는 모든 표준 미용 서비스 제공 — 선택 UI 없이 항상 전체 목록 */
+export function buildAllServiceItemsForGroomer(): ServiceItem[] {
+  return SERVICE_DEFS.map((s) => ({
+    id: s.id,
+    name: s.name,
+    price: getServicePrice(s.id, "소형견", "5kg미만") || 50000,
+    duration: s.duration,
+  }));
+}
+
 function mapGroomer(p: GroomerProfile): GroomerProfile {
   const address = p.address ?? p.area ?? "";
   const radiusKm = p.radiusKm ?? 10;
-  let services = p.services ?? [];
-  if (services.length === 0) {
-    services = SERVICE_DEFS.map((s) => ({
-      id: s.id,
-      name: s.name,
-      price: getServicePrice(s.id, "소형견", "5kg미만") || 50000,
-      duration: s.duration,
-    }));
-  }
+  const services = buildAllServiceItemsForGroomer();
   let availableSlots = p.availableSlots ?? [];
   if (availableSlots.length === 0) {
     const defaultTimes = ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"];
@@ -85,6 +87,7 @@ export async function saveGroomerProfile(profile: GroomerProfile): Promise<boole
       id: profile.id,
       address: profile.address ?? profile.area ?? "",
       radiusKm: Number(profile.radiusKm) || 10,
+      services: buildAllServiceItemsForGroomer(),
     };
     if (idx >= 0) {
       toSave.suspended = list[idx].suspended;

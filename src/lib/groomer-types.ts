@@ -26,6 +26,7 @@ export type GroomerProfile = {
   address: string; // 자기 주소지 (시/구/동)
   radiusKm: number; // 반경 km (이 거리 내 방문 가능)
   area?: string; // 하위 호환: address에서 추출한 지역
+  /** 표준 미용 패키지 전체 (디자이너별 선택 없음, 저장 시 항상 전체로 맞춤) */
   services: ServiceItem[];
   availableSlots: AvailableSlot[];
   createdAt: string;

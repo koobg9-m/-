@@ -5,24 +5,27 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { getBookings, getGroomerProfiles, updateGroomer, updateBooking } from "@/lib/groomer-storage";
-import { SERVICE_DEFS, getServicePrices, saveServicePrices, getServicePricesLegacy, getAdditionalFees, saveAdditionalFees, DEFAULT_ADDITIONAL_FEES, DEFAULT_PRICE_TABLE, type BreedType, type WeightTier, type AdditionalFeeItem } from "@/lib/services";
+import { SERVICE_DEFS, getServicePrices, saveServicePrices, getServicePricesLegacy, getAdditionalFees, saveAdditionalFees, DEFAULT_ADDITIONAL_FEES, DEFAULT_PRICE_TABLE, hydrateServicesFromRemote, type BreedType, type WeightTier, type AdditionalFeeItem } from "@/lib/services";
 import { hashPassword, verifyPassword } from "@/lib/auth-utils";
-import { setAdminAuthCookie, clearAdminAuthCookie, hasAdminAuthCookie } from "@/lib/admin-auth-cookie";
-import { getAdminSettings, getAdminSettingsAsync, saveAdminSettings, calcCommission, calcSettlementAmount, getServiceTotalForSettlement } from "@/lib/admin-settings";
+import { clearAdminAuthCookie, hasAdminAuthCookie } from "@/lib/admin-auth-cookie";
+import { getAdminSettings, getAdminSettingsAsync, saveAdminSettings, hydrateAdminSettingsFromRemote, calcCommission, calcSettlementAmount, getServiceTotalForSettlement } from "@/lib/admin-settings";
 import { getSyncStatus } from "@/lib/data-sync";
 import { downloadSettlementExcel } from "@/lib/settlement-excel";
 import { checkAndSendGroomingReminders } from "@/lib/grooming-reminder";
-import { getPointSettings, savePointSettings, getCustomerPoints, setCustomerPoints, type PointSettings } from "@/lib/point-storage";
-import { getSmsTemplates, saveSmsTemplates, getSmsLog, addSmsLog, fillTemplate, type SmsTemplate } from "@/lib/notification-storage";
-import { getHomepageContent } from "@/lib/homepage-content-storage";
+import { getPointSettings, savePointSettings, getCustomerPoints, setCustomerPoints, hydratePointsFromRemote, type PointSettings } from "@/lib/point-storage";
+import { getSmsTemplates, saveSmsTemplates, getSmsLog, addSmsLog, fillTemplate, hydrateNotificationFromRemote, type SmsTemplate } from "@/lib/notification-storage";
+import { hydrateHomepageFromRemote } from "@/lib/homepage-content-storage";
+import { hydrateTipsNoticesFromRemote } from "@/lib/tips-notices-storage";
+import { pushLocalAppDataToServer } from "@/lib/push-local-app-data-to-server";
+import { getAdminPasswordHash, saveAdminPasswordHash } from "@/lib/admin-password-hash";
 import type { GroomerProfile } from "@/lib/groomer-types";
 import AdminHomepageEditor from "@/components/admin/AdminHomepageEditor";
+import AdminLocalBackupCard from "@/components/admin/AdminLocalBackupCard";
 import StarRating from "@/components/common/StarRating";
 
 const Header = dynamic(() => import("@/components/layout/Header"), { ssr: false });
 const Footer = dynamic(() => import("@/components/layout/Footer"), { ssr: false });
 
-const ADMIN_PW_HASH_KEY = "mimi_admin_password_hash";
 const ADMIN_AUTH_KEY = "mimi_admin_authenticated";
 
 type PetInfo = { name: string; species: string; healthConditions?: string; isAggressive?: boolean };
@@ -123,9 +126,6 @@ export default function AdminPage() {
   const [settings, setSettings] = useState(() => getAdminSettings());
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
-  const [passwordInput, setPasswordInput] = useState("");
-  const [passwordError, setPasswordError] = useState("");
-  const [isSetup, setIsSetup] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const [pwChangeCurrent, setPwChangeCurrent] = useState("");
   const [pwChangeNew, setPwChangeNew] = useState("");
@@ -161,7 +161,6 @@ export default function AdminPage() {
   const [groomerFilterDateTo, setGroomerFilterDateTo] = useState("");
   const [groomerFilterRadius, setGroomerFilterRadius] = useState<string>("all");
   const [groomerFilterAccount, setGroomerFilterAccount] = useState<string>("all");
-  const [groomerFilterServices, setGroomerFilterServices] = useState<string>("all");
   const [groomerFilterVisits, setGroomerFilterVisits] = useState<string>("all");
   const [groomerFilterRating, setGroomerFilterRating] = useState<string>("all");
   const [groomerFilterPassword, setGroomerFilterPassword] = useState<string>("all");
@@ -170,29 +169,37 @@ export default function AdminPage() {
   const [groomerSmsBody, setGroomerSmsBody] = useState("");
   const [syncStatus, setSyncStatus] = useState<{ ok: boolean; configured: boolean; error?: string } | null>(null);
   const [serverRefreshLoading, setServerRefreshLoading] = useState(false);
+  /** Supabase에서 관리자 데이터 불러온 뒤 요금·포인트·SMS UI 갱신 */
+  const [adminDataRevision, setAdminDataRevision] = useState(0);
 
   useEffect(() => {
-    const run = () => {
+    let cancelled = false;
+    let t: ReturnType<typeof setTimeout>;
+    (async () => {
       try {
         if (typeof window === "undefined") {
           setAuthChecked(true);
           return;
         }
-        const hash = localStorage.getItem(ADMIN_PW_HASH_KEY);
+        const hash = await getAdminPasswordHash();
+        if (cancelled) return;
         const auth = sessionStorage.getItem(ADMIN_AUTH_KEY);
         const hasCookie = hasAdminAuthCookie();
-        setIsSetup(!!hash);
         setAuthenticated(!!hash && (auth === "1" || hasCookie));
         if (hasCookie && auth !== "1") sessionStorage.setItem(ADMIN_AUTH_KEY, "1");
       } catch {
-        // localStorage 등 접근 실패 시
+        /* ignore */
       } finally {
-        setAuthChecked(true);
+        if (!cancelled) setAuthChecked(true);
       }
+    })();
+    t = setTimeout(() => {
+      if (!cancelled) setAuthChecked(true);
+    }, 1500);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
     };
-    run();
-    const t = setTimeout(() => setAuthChecked(true), 800);
-    return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
@@ -203,19 +210,31 @@ export default function AdminPage() {
   }, [tab, groomersRefresh]);
 
   useEffect(() => {
-    getAdminSettingsAsync().then(setSettings);
-  }, []);
-
-  useEffect(() => {
     getSyncStatus().then(setSyncStatus);
   }, []);
+
+  /** 로그인 후·Supabase 연동 시 요금·포인트·SMS·플랫폼 설정을 서버와 맞춤 */
+  useEffect(() => {
+    if (!authChecked || !authenticated) return;
+    (async () => {
+      await Promise.all([
+        hydrateServicesFromRemote(),
+        hydratePointsFromRemote(),
+        hydrateNotificationFromRemote(),
+        hydrateAdminSettingsFromRemote(),
+      ]);
+      const s = await getAdminSettingsAsync();
+      setSettings(s);
+      setAdminDataRevision((r) => r + 1);
+    })().catch(() => {});
+  }, [authChecked, authenticated]);
 
   useEffect(() => {
     if (tab === "customers") {
       setSmsTemplates(getSmsTemplates());
       setSmsLog(getSmsLog());
     }
-  }, [tab]);
+  }, [tab, adminDataRevision]);
 
   useEffect(() => {
     if (tab === "settings") {
@@ -248,15 +267,15 @@ export default function AdminPage() {
       }
     }
     setPrices(merged);
-  }, [tab]);
+  }, [tab, adminDataRevision]);
 
   useEffect(() => {
     if (tab === "prices") setAdditionalFees(getAdditionalFees());
-  }, [tab]);
+  }, [tab, adminDataRevision]);
 
   useEffect(() => {
     if (tab === "points") setPointSettings(getPointSettings());
-  }, [tab]);
+  }, [tab, adminDataRevision]);
 
   useEffect(() => {
     if (authChecked && authenticated === false) {
@@ -314,34 +333,6 @@ export default function AdminPage() {
     return () => clearTimeout(t);
   }, [additionalFees, tab]);
 
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPasswordError("");
-    if (isSetup) {
-      const ok = await verifyPassword(passwordInput, localStorage.getItem(ADMIN_PW_HASH_KEY)!);
-      if (ok) {
-        sessionStorage.setItem(ADMIN_AUTH_KEY, "1");
-        setAdminAuthCookie();
-        setAuthenticated(true);
-        setPasswordInput("");
-      } else {
-        setPasswordError("비밀번호가 올바르지 않습니다.");
-      }
-    } else {
-      if (passwordInput.length < 6) {
-        setPasswordError("비밀번호는 6자 이상이어야 합니다.");
-        return;
-      }
-      const h = await hashPassword(passwordInput);
-      localStorage.setItem(ADMIN_PW_HASH_KEY, h);
-      sessionStorage.setItem(ADMIN_AUTH_KEY, "1");
-      setAdminAuthCookie();
-      setAuthenticated(true);
-      setIsSetup(true);
-      setPasswordInput("");
-    }
-  };
-
   const handleLogout = () => {
     sessionStorage.removeItem(ADMIN_AUTH_KEY);
     clearAdminAuthCookie();
@@ -355,7 +346,7 @@ export default function AdminPage() {
 
   const handlePasswordChange = async () => {
     setPwChangeMsg("");
-    const hash = localStorage.getItem(ADMIN_PW_HASH_KEY);
+    const hash = await getAdminPasswordHash();
     if (!hash) return;
     const ok = await verifyPassword(pwChangeCurrent, hash);
     if (!ok) {
@@ -371,7 +362,7 @@ export default function AdminPage() {
       return;
     }
     const newHash = await hashPassword(pwChangeNew);
-    localStorage.setItem(ADMIN_PW_HASH_KEY, newHash);
+    await saveAdminPasswordHash(newHash);
     setPwChangeMsg("비밀번호가 변경되었습니다.");
     setPwChangeCurrent("");
     setPwChangeNew("");
@@ -651,11 +642,6 @@ export default function AdminPage() {
       groomerFilterAccount === "yes" ? hasAccount(x.g) : !hasAccount(x.g)
     );
   }
-  if (groomerFilterServices !== "all") {
-    groomerList = groomerList.filter((x) =>
-      groomerFilterServices === "yes" ? (x.g.services?.length ?? 0) > 0 : (x.g.services?.length ?? 0) === 0
-    );
-  }
   if (groomerFilterVisits !== "all") {
     const v = groomerFilterVisits;
     groomerList = groomerList.filter((x) => {
@@ -851,18 +837,32 @@ export default function AdminPage() {
                   onClick={async () => {
                     setServerRefreshLoading(true);
                     try {
-                      const [bList, gList, newSettings] = await Promise.all([
-                        getBookings(),
-                        getGroomerProfiles(),
-                        getAdminSettingsAsync(),
+                      // 1) 먼저 Supabase → localStorage 반영 후 2) 예약·디자이너·설정 UI 갱신
+                      await Promise.all([
+                        hydrateHomepageFromRemote(),
+                        hydrateTipsNoticesFromRemote(),
+                        hydrateServicesFromRemote(),
+                        hydratePointsFromRemote(),
+                        hydrateNotificationFromRemote(),
+                        hydrateAdminSettingsFromRemote(),
                       ]);
+                      const [bList, gList] = await Promise.all([getBookings(), getGroomerProfiles()]);
                       setBookings(bList);
                       setGroomers(gList);
-                      setSettings(newSettings);
+                      setSettings(await getAdminSettingsAsync());
+                      setAdminDataRevision((r) => r + 1);
+                      try {
+                        window.dispatchEvent(new CustomEvent("mimi_homepage_updated"));
+                        window.dispatchEvent(new CustomEvent("mimi_tips_notices_updated"));
+                      } catch {
+                        /* ignore */
+                      }
                       const status = await getSyncStatus();
                       setSyncStatus(status);
                       setGroomersRefresh((r) => r + 1);
-                      alert("서버에서 새로고침 완료");
+                      alert(
+                        "서버에서 새로고침 완료\n\n※ 배포 버전은 코드이고, 화면 내용은 DB+브라우저 저장소입니다. 로컬에서만 바꾼 뒤 저장이 안 됐다면 운영과 다를 수 있습니다. 그럴 땐 옆 버튼「로컬→서버 업로드」를 사용하세요."
+                      );
                     } catch (e) {
                       alert(`새로고침 실패: ${e instanceof Error ? e.message : String(e)}`);
                     } finally {
@@ -873,7 +873,55 @@ export default function AdminPage() {
                 >
                   {serverRefreshLoading ? "새로고침 중..." : "서버에서 새로고침"}
                 </button>
+                <button
+                  type="button"
+                  disabled={serverRefreshLoading}
+                  onClick={async () => {
+                    if (
+                      !confirm(
+                        "이 PC 브라우저에 있는 데이터(홈·공지·예약·요금 등)를 Supabase에 올립니다.\n다른 곳(운영 사이트)에 있던 내용은 이 PC 내용으로 덮어씌워질 수 있습니다.\n계속할까요?"
+                      )
+                    ) {
+                      return;
+                    }
+                    setServerRefreshLoading(true);
+                    try {
+                      const r = await pushLocalAppDataToServer();
+                      const msg = [
+                        `업로드: ${r.pushed.length}개 키`,
+                        r.skipped.length ? `건너뜀(비어 있음): ${r.skipped.length}개` : "",
+                        r.failed.length ? `실패: ${r.failed.join(", ")}` : "",
+                      ]
+                        .filter(Boolean)
+                        .join("\n");
+                      alert(msg || "완료");
+                      const [bList, gList] = await Promise.all([getBookings(), getGroomerProfiles()]);
+                      setBookings(bList);
+                      setGroomers(gList);
+                      setSettings(await getAdminSettingsAsync());
+                      setAdminDataRevision((x) => x + 1);
+                      setGroomersRefresh((x) => x + 1);
+                      setSyncStatus(await getSyncStatus());
+                    } catch (e) {
+                      alert(`업로드 실패: ${e instanceof Error ? e.message : String(e)}`);
+                    } finally {
+                      setServerRefreshLoading(false);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  로컬→서버 업로드
+                </button>
               </div>
+              <AdminLocalBackupCard
+                onRestored={() => {
+                  setAdminDataRevision((r) => r + 1);
+                  setGroomersRefresh((r) => r + 1);
+                  void getBookings().then(setBookings);
+                  void getGroomerProfiles().then(setGroomers);
+                  void getAdminSettingsAsync().then(setSettings);
+                }}
+              />
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="card p-5">
                   <p className="text-sm text-gray-500">총 예약</p>
@@ -1027,15 +1075,6 @@ export default function AdminPage() {
                         <option value="all">계좌</option>
                         <option value="yes">계좌 등록됨</option>
                         <option value="no">계좌 미등록</option>
-                      </select>
-                      <select
-                        value={groomerFilterServices}
-                        onChange={(e) => setGroomerFilterServices(e.target.value)}
-                        className="px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                      >
-                        <option value="all">서비스</option>
-                        <option value="yes">서비스 있음</option>
-                        <option value="no">서비스 없음</option>
                       </select>
                       <select
                         value={groomerFilterVisits}

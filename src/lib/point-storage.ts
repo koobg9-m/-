@@ -1,5 +1,7 @@
 "use client";
 
+import { fetchData, saveData } from "./data-sync";
+
 const POINT_SETTINGS_KEY = "mimi_point_settings";
 const CUSTOMER_POINTS_KEY = "mimi_customer_points";
 const POINT_HISTORY_KEY = "mimi_point_history";
@@ -42,9 +44,32 @@ export function savePointSettings(settings: Partial<PointSettings>): boolean {
     const current = getPointSettings();
     const merged = { ...current, ...settings };
     localStorage.setItem(POINT_SETTINGS_KEY, JSON.stringify(merged));
+    void saveData(POINT_SETTINGS_KEY, merged);
     return true;
   } catch {
     return false;
+  }
+}
+
+type CustomerPointsMap = Record<string, { points: number; updatedAt: string }>;
+
+/** Supabase에서 포인트 설정·고객 포인트·이력 불러오기 */
+export async function hydratePointsFromRemote(): Promise<void> {
+  if (typeof window === "undefined") return;
+  const [settings, map, history] = await Promise.all([
+    fetchData<Partial<PointSettings>>(POINT_SETTINGS_KEY),
+    fetchData<CustomerPointsMap>(CUSTOMER_POINTS_KEY),
+    fetchData<{ key: string; amount: number; type: "earn" | "use"; reason: string; bookingId?: string; createdAt: string }[]>(POINT_HISTORY_KEY),
+  ]);
+  if (settings != null && typeof settings === "object") {
+    const merged = { ...DEFAULT_SETTINGS, ...settings };
+    localStorage.setItem(POINT_SETTINGS_KEY, JSON.stringify(merged));
+  }
+  if (map != null && typeof map === "object") {
+    localStorage.setItem(CUSTOMER_POINTS_KEY, JSON.stringify(map));
+  }
+  if (history != null && Array.isArray(history)) {
+    localStorage.setItem(POINT_HISTORY_KEY, JSON.stringify(history.slice(0, 500)));
   }
 }
 
@@ -60,9 +85,7 @@ function normalizePhone(p: string): string {
   return p.replace(/\D/g, "");
 }
 
-type CustomerPoints = Record<string, { points: number; updatedAt: string }>;
-
-function getCustomerPointsMap(): CustomerPoints {
+function getCustomerPointsMap(): CustomerPointsMap {
   if (typeof window === "undefined") return {};
   try {
     const raw = localStorage.getItem(CUSTOMER_POINTS_KEY);
@@ -72,9 +95,10 @@ function getCustomerPointsMap(): CustomerPoints {
   }
 }
 
-function saveCustomerPointsMap(map: CustomerPoints): void {
+function saveCustomerPointsMap(map: CustomerPointsMap): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(CUSTOMER_POINTS_KEY, JSON.stringify(map));
+  void saveData(CUSTOMER_POINTS_KEY, map);
 }
 
 /** 고객 보유 포인트 조회 */
@@ -152,7 +176,9 @@ function addPointHistory(key: string, amount: number, type: "earn" | "use", reas
     const raw = localStorage.getItem(POINT_HISTORY_KEY);
     const list: PointHistoryItem[] = raw ? JSON.parse(raw) : [];
     list.unshift({ key, amount, type, reason, bookingId, createdAt: new Date().toISOString() });
-    localStorage.setItem(POINT_HISTORY_KEY, JSON.stringify(list.slice(0, 500)));
+    const trimmed = list.slice(0, 500);
+    localStorage.setItem(POINT_HISTORY_KEY, JSON.stringify(trimmed));
+    void saveData(POINT_HISTORY_KEY, trimmed);
   } catch {
     // ignore
   }

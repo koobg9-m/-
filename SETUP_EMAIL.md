@@ -49,8 +49,7 @@ NEXT_PUBLIC_DEMO_AUTH=false
 
 1. `npm run dev` 실행
 2. http://localhost:5000/login 접속
-3. **이메일** 탭 선택
-4. 이메일 주소 입력 → **로그인 링크 받기** 클릭
+3. 이메일 주소 입력 → **로그인 링크 받기** 클릭
 5. 받은 이메일에서 링크 클릭 → 자동 로그인
 
 ---
@@ -59,5 +58,5 @@ NEXT_PUBLIC_DEMO_AUTH=false
 
 `NEXT_PUBLIC_DEMO_AUTH=true` 이면:
 
-- 이메일/휴대폰 입력 후 **데모: 바로 로그인** 버튼으로 테스트
-- 실제 메일/SMS 발송 없음
+- 이메일 입력 후 **데모: 바로 로그인** 버튼으로 테스트
+- 실제 메일 발송 없음

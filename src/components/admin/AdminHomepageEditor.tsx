@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import {
   getHomepageContent,
@@ -9,6 +9,8 @@ import {
   removeGalleryItem,
   addProductLink,
   removeProductLink,
+  hydrateHomepageFromRemote,
+  subscribeHomepageRemote,
 } from "@/lib/homepage-content-storage";
 import {
   getTips,
@@ -19,6 +21,8 @@ import {
   addNotice,
   updateNotice,
   removeNotice,
+  hydrateTipsNoticesFromRemote,
+  subscribeTipsNoticesRemote,
 } from "@/lib/tips-notices-storage";
 import type { TipItem, NoticeItem } from "@/lib/tips-notices-storage";
 
@@ -96,6 +100,32 @@ export default function AdminHomepageEditor() {
     setTips(getTips());
     setNotices(getNotices());
   };
+
+  useEffect(() => {
+    let unsubHome: (() => void) | undefined;
+    let unsubTips: (() => void) | undefined;
+    (async () => {
+      await Promise.all([hydrateHomepageFromRemote(), hydrateTipsNoticesFromRemote()]);
+      refresh();
+      unsubHome = subscribeHomepageRemote(refresh);
+      unsubTips = subscribeTipsNoticesRemote(refresh);
+    })();
+    const onVisible = () => {
+      void Promise.all([hydrateHomepageFromRemote(), hydrateTipsNoticesFromRemote()]).finally(refresh);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    const onHomeEvt = () => refresh();
+    const onTipsEvt = () => refresh();
+    window.addEventListener("mimi_homepage_updated", onHomeEvt);
+    window.addEventListener("mimi_tips_notices_updated", onTipsEvt);
+    return () => {
+      unsubHome?.();
+      unsubTips?.();
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("mimi_homepage_updated", onHomeEvt);
+      window.removeEventListener("mimi_tips_notices_updated", onTipsEvt);
+    };
+  }, []);
 
   const handleAddGallery = () => {
     if (!newGalleryUrl.trim()) return;
@@ -410,7 +440,7 @@ export default function AdminHomepageEditor() {
                   <div className="flex items-center gap-3">
                     {item.imageUrl ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
-                      <img src={item.imageUrl} alt="" className="w-12 h-12 rounded-lg object-cover" />
+                      <img src={item.imageUrl} alt="" className="w-[4.4rem] h-[4.4rem] rounded-lg object-cover" />
                     ) : (
                       <div className="w-12 h-12 rounded-lg bg-mimi-primary/10 flex items-center justify-center">🔗</div>
                     )}

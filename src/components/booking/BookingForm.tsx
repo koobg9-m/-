@@ -8,8 +8,8 @@ import { getCustomerProfile, saveCustomerProfile, canProceedToBooking } from "@/
 import { matchGroomers, matchGroomersWithGeocode, getAvailableSlots, getAvailableSlotsWithGeocode } from "@/lib/groomer-match";
 import type { GroomerProfile, Booking, CustomerProfile, Pet } from "@/lib/groomer-types";
 import { getPetAge } from "@/lib/groomer-types";
-import { SERVICE_DEFS, getServicePrice, weightRangeToBreedAndTier, getAdditionalFees, getAdditionalFeePrice, DEFAULT_ADDITIONAL_FEES } from "@/lib/services";
-import { addPoints, getCustomerPoints, getPointSettings, getMaxUsablePoints, deductPoints, calcDiscountFromPoints, calcEarnPoints } from "@/lib/point-storage";
+import { SERVICE_DEFS, getServicePrice, getServicesForBreed, weightRangeToBreedAndTier, getAdditionalFees, getAdditionalFeePrice, DEFAULT_ADDITIONAL_FEES, hydrateServicesFromRemote } from "@/lib/services";
+import { addPoints, getCustomerPoints, getPointSettings, getMaxUsablePoints, deductPoints, calcDiscountFromPoints, calcEarnPoints, hydratePointsFromRemote } from "@/lib/point-storage";
 import type { BreedType, WeightTier } from "@/lib/services";
 import CustomerProfileForm from "./CustomerProfileForm";
 
@@ -75,7 +75,9 @@ export default function BookingForm() {
   }, [customer?.phone, customer?.email]);
 
   useEffect(() => {
-    Promise.all([getGroomerProfiles(), getCustomerProfile()]).then(([gList, prof]) => {
+    (async () => {
+      await Promise.all([hydrateServicesFromRemote(), hydratePointsFromRemote()]);
+      const [gList, prof] = await Promise.all([getGroomerProfiles(), getCustomerProfile()]);
       setGroomers(gList);
       setCustomer(prof);
       const serviceParam = searchParams.get("service");
@@ -92,7 +94,7 @@ export default function BookingForm() {
       } else if (serviceParam && SERVICE_DEFS.some((s) => s.id === serviceParam)) {
         setServiceId(serviceParam);
       }
-    });
+    })();
   }, [searchParams]);
 
   useEffect(() => {
@@ -382,11 +384,11 @@ export default function BookingForm() {
             </div>
           )}
           <div className="space-y-3">
-            {(groomer ? groomer.services.filter((s) => SERVICE_DEFS.some((d) => d.id === s.id)) : SERVICE_DEFS).map((s) => {
-              const def = SERVICE_DEFS.find((d) => d.id === s.id) ?? s;
-              const name = "name" in def ? def.name : s.name;
-              const desc = "description" in def ? (def as { description?: string }).description : "";
-              const price = "price" in s ? s.price : getServicePrice(s.id, serviceBreedType, serviceWeightTier) || 50000;
+            {getServicesForBreed(serviceBreedType).map((def) => {
+              const s = def;
+              const name = def.name;
+              const desc = def.description ?? "";
+              const price = getServicePrice(s.id, serviceBreedType, serviceWeightTier) || 50000;
               return (
                 <button
                   key={s.id}

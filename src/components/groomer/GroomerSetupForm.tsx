@@ -85,7 +85,7 @@ export default function GroomerSetupForm() {
       address: addr,
       radiusKm: radius,
       area: areaParts,
-      services: [],
+      services: [], // 저장 시 groomer-storage에서 전체 서비스로 정규화됨
       availableSlots: sl,
       createdAt: new Date().toISOString(),
       bankName: (bn ?? "").trim() || undefined,

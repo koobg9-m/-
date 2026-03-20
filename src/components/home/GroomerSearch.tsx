@@ -83,7 +83,7 @@ export default function GroomerSearch() {
                         <h4 className="font-bold text-mimi-charcoal text-lg">{g.name}</h4>
                         <p className="text-sm text-mimi-slate mt-0.5">{g.address ?? g.area} · 반경 {g.radiusKm ?? 10}km</p>
                         {g.intro && <p className="text-sm text-mimi-slate mt-2 line-clamp-2">{g.intro}</p>}
-                        <p className="text-sm text-mimi-primary font-medium mt-2">{g.services.length}개 서비스</p>
+                        <p className="text-sm text-mimi-primary font-medium mt-2">전체 미용 서비스</p>
                       </div>
                     </div>
                     <Link

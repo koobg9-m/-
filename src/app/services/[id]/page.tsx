@@ -1,9 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useParams, notFound } from "next/navigation";
-import { getServiceDef, getServicePrice } from "@/lib/services";
+import { getServiceDef, getServicePrice, hydrateServicesFromRemote } from "@/lib/services";
 import type { BreedType, WeightTier } from "@/lib/services";
 
 const BREED_SAMPLES: { breed: BreedType; tier: WeightTier }[] = [
@@ -16,6 +17,11 @@ const Header = dynamic(() => import("@/components/layout/Header"), { ssr: false 
 const Footer = dynamic(() => import("@/components/layout/Footer"), { ssr: false });
 
 export default function ServiceDetailPage() {
+  const [, setSynced] = useState(0);
+  useEffect(() => {
+    void hydrateServicesFromRemote().then(() => setSynced((n) => n + 1));
+  }, []);
+
   const params = useParams();
   const id = (params?.id as string) ?? "";
   const service = getServiceDef(id);

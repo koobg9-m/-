@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { getNotices } from "@/lib/tips-notices-storage";
+import { getNotices, hydrateTipsNoticesFromRemote, subscribeTipsNoticesRemote } from "@/lib/tips-notices-storage";
 import type { NoticeItem } from "@/lib/tips-notices-storage";
 
 const HOMEPAGE_NOTICES_KEY = "mimi_tips_notices_updated";
@@ -27,12 +27,23 @@ export default function HomeNotices() {
 
   useEffect(() => {
     const refresh = () => setNotices(getNotices());
-    refresh();
+    let unsubRemote: (() => void) | undefined;
+    (async () => {
+      await hydrateTipsNoticesFromRemote();
+      refresh();
+      unsubRemote = subscribeTipsNoticesRemote(refresh);
+    })();
     window.addEventListener("storage", refresh);
     window.addEventListener(HOMEPAGE_NOTICES_KEY, refresh);
+    const onVisible = () => {
+      void hydrateTipsNoticesFromRemote().finally(refresh);
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
+      unsubRemote?.();
       window.removeEventListener("storage", refresh);
       window.removeEventListener(HOMEPAGE_NOTICES_KEY, refresh);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 

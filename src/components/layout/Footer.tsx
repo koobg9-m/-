@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { SITE_COPYRIGHT_YEAR, SITE_VERSION } from "@/lib/site-version";
+import { shouldShowAdminLinkInFooter } from "@/lib/show-admin-link";
 
 export default function Footer() {
   return (
@@ -50,9 +52,11 @@ export default function Footer() {
               <li>
                 <Link href="/groomer/register" className="hover:text-mimi-gold transition-colors font-medium">디자이너 신청하기</Link>
               </li>
-              <li>
-                <Link href="/admin" className="hover:text-mimi-gold transition-colors">관리자</Link>
-              </li>
+              {shouldShowAdminLinkInFooter() && (
+                <li>
+                  <Link href="/admin" className="hover:text-mimi-gold transition-colors">관리자</Link>
+                </li>
+              )}
             </ul>
           </div>
         </div>
@@ -64,7 +68,10 @@ export default function Footer() {
             <p>연락처: 070-7651-9568 | 제휴·문의: <a href="mailto:koobg@naver.com" className="text-mimi-gold hover:underline">koobg@naver.com</a></p>
             <p>예약문의: <a href="tel:010-4546-2955" className="text-mimi-gold hover:underline font-medium">010-4546-2955</a></p>
           </div>
-          <p className="text-center text-stone-500 text-sm">© 2025 미미살롱펫 <span className="text-stone-600 font-medium">v2.7</span> <span className="text-stone-500">(배포: 2026-03-20)</span></p>
+          <p className="text-center text-stone-500 text-sm">
+            © {SITE_COPYRIGHT_YEAR} 미미살롱펫{" "}
+            <span className="text-stone-600 font-medium">({SITE_VERSION})</span>
+          </p>
           <p className="text-center text-stone-500 text-xs mt-4 max-w-2xl mx-auto leading-relaxed">
             미미살롱펫은 통신판매중개자로서 통신판매의 당사자가 아니며, 디자이너가 등록한 상품정보 및 거래에 대해 책임을 지지 않습니다.
           </p>

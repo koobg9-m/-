@@ -1,8 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { SERVICE_DEFS, getServicePrice } from "@/lib/services";
+import { SERVICE_DEFS, getServicePrice, hydrateServicesFromRemote } from "@/lib/services";
 import type { BreedType, WeightTier } from "@/lib/services";
 
 const BREED_SAMPLES: { breed: BreedType; tier: WeightTier }[] = [
@@ -15,6 +16,11 @@ const Header = dynamic(() => import("@/components/layout/Header"), { ssr: false 
 const Footer = dynamic(() => import("@/components/layout/Footer"), { ssr: false });
 
 export default function ServicesPage() {
+  const [, setSynced] = useState(0);
+  useEffect(() => {
+    void hydrateServicesFromRemote().then(() => setSynced((n) => n + 1));
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />

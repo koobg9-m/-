@@ -1,5 +1,5 @@
-export const dynamic = "force-dynamic";
+import AdminProductionGuard from "@/components/admin/AdminProductionGuard";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return <AdminProductionGuard>{children}</AdminProductionGuard>;
 }

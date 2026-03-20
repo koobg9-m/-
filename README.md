@@ -46,6 +46,31 @@
 
 4. Open [http://localhost:5006](http://localhost:5006) (포트 5006)
 
+### 로컬에서 `Internal Server Error` (500)가 날 때
+
+터미널에 `UNKNOWN: unknown error, open '...\.next\...'` (예: `app\admin\page.js`, `chunks\...`) 가 보이면 **Windows에서 `.next` 파일 잠금·손상**인 경우가 많습니다. 관리자 페이지는 번들이 커서 잘 발생할 수 있습니다. (`next.config.js`에서 dev 시 웹팩 캐시를 끄도록 설정해 두었습니다.)
+
+1. **개발 서버 종료** (실행 중인 터미널에서 `Ctrl+C`)
+2. **캐시 삭제 후 재시작**
+   ```bash
+   npm run dev:fresh
+   ```
+   (`clean` + 포트 5006 정리 + `dev` — `package.json` 참고)
+
+그래도 같으면: **백신 실시간 검사에서 프로젝트 폴더 제외**, **OneDrive 등 동기화 폴더 밖**에 클론, 다른 프로세스가 `.next`를 잡고 있지 않은지 확인.
+
+### 코드·데이터는 로컬에서만 수정할 때 (운영에서 관리자 안 씀)
+
+| 항목 | 설명 |
+|------|------|
+| **가능 여부** | 가능. `npm run dev`로 로컬 관리자에서 수정 후 `git push` / 배포하면 됨. |
+| **Supabase** | 로컬과 운영이 **같은 Supabase 프로젝트**면, 로컬에서 저장한 홈·공지 등 데이터는 **운영 사이트에도 그대로 반영**됩니다(동일 DB). 분리하려면 프로젝트를 나누거나 마이그레이션 전략이 필요합니다. |
+| **푸터 「관리자」** | **로컬 `npm run dev`**: 항상 표시. **운영(Vercel)**: `NEXT_PUBLIC_SHOW_ADMIN_LINK` 없으면 비노출(기본). |
+| **운영에서 비밀번호** | 링크만 숨겨도 `/admin` URL은 열릴 수 있어, 운영에서 관리자를 **완전히 쓰지 않을 때**는 Vercel에 `NEXT_PUBLIC_DISABLE_ADMIN=1` 설정 권장 → 프로덕션에서 `/admin` 전체가 홈으로 리다이렉트됩니다(로컬 `npm run dev`는 그대로 사용 가능). |
+| **최초 설정** | 운영에서 관리자를 막았다면 `NEXT_PUBLIC_ALLOW_ADMIN_SETUP`은 `0`이면 충분합니다. |
+
+자세한 변수 설명은 `.env.example` 참고.
+
 ## 지도 API (선택, 거리 기반 매칭용)
 
 Kakao 또는 Naver 지도 API 키를 설정하면 **실제 거리**로 미용사 매칭이 됩니다.
