@@ -1,6 +1,8 @@
 "use client";
 
-const HOMEPAGE_CONTENT_KEY = "mimi_homepage_content";
+import { fetchData, saveData, subscribeDataKey } from "./data-sync";
+
+export const HOMEPAGE_CONTENT_KEY = "mimi_homepage_content";
 
 export type GalleryItem = {
   id: string;
@@ -41,7 +43,6 @@ function parseContent(raw: string | null): HomepageContent {
   try {
     const parsed = JSON.parse(raw) as Partial<HomepageContent>;
     const productLinks = Array.isArray(parsed?.productLinks) ? parsed.productLinks : [];
-    // 기존 기본 쿠팡 링크 제거 (입력하지 않은 제품)
     const filtered = productLinks.filter((p) => !p.id?.startsWith("default-"));
     return {
       gallery: Array.isArray(parsed?.gallery) ? parsed.gallery : [],
@@ -50,6 +51,54 @@ function parseContent(raw: string | null): HomepageContent {
   } catch {
     return DEFAULT;
   }
+}
+
+/** 원격(JSON) 객체를 HomepageContent로 정규화 */
+function normalizeRemoteContent(remote: HomepageContent): HomepageContent {
+  const gallery = Array.isArray(remote.gallery) ? remote.gallery : [];
+  let productLinks = Array.isArray(remote.productLinks) ? remote.productLinks : [];
+  productLinks = productLinks.filter((p) => !p.id?.startsWith("default-"));
+  let result: HomepageContent = { gallery, productLinks };
+  if (result.gallery.length === 0) {
+    result = { ...result, gallery: [...DEFAULT_GALLERY] };
+  }
+  return result;
+}
+
+function applyToBrowserStorage(content: HomepageContent): void {
+  if (typeof window === "undefined") return;
+  const json = JSON.stringify(content);
+  localStorage.setItem(HOMEPAGE_CONTENT_KEY, json);
+  sessionStorage.setItem(HOMEPAGE_CONTENT_KEY, json);
+  try {
+    window.dispatchEvent(new CustomEvent("mimi_homepage_updated", { detail: content }));
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Supabase에서 홈페이지 콘텐츠를 가져와 localStorage에 반영.
+ * @returns 서버에 데이터가 있어 반영했으면 true
+ */
+export async function hydrateHomepageFromRemote(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  const remote = await fetchData<HomepageContent>(HOMEPAGE_CONTENT_KEY);
+  if (remote == null || typeof remote !== "object") return false;
+  const normalized = normalizeRemoteContent(remote);
+  applyToBrowserStorage(normalized);
+  return true;
+}
+
+/** Supabase Realtime: app_data 해당 키 변경 시 콜백 */
+export function subscribeHomepageRemote(onUpdate: () => void): () => void {
+  return subscribeDataKey(HOMEPAGE_CONTENT_KEY, () => {
+    void hydrateHomepageFromRemote().finally(() => onUpdate());
+  });
+}
+
+function pushHomepageToRemote(content: HomepageContent): void {
+  void saveData(HOMEPAGE_CONTENT_KEY, content);
 }
 
 export function getHomepageContent(): HomepageContent {
@@ -92,6 +141,7 @@ export function saveHomepageContent(content: HomepageContent): boolean {
     } catch {
       /* ignore */
     }
+    pushHomepageToRemote(content);
     return true;
   } catch {
     return false;
