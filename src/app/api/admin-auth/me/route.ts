@@ -1,12 +1,16 @@
 /**
  * 관리자 인증 상태 확인 API
- * 이 API는 현재 비활성화되어 항상 인증되지 않은 상태를 반환합니다.
+ * 쿠키 기반으로 인증 상태를 확인합니다.
  */
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  // 항상 인증되지 않은 상태 반환
-  return NextResponse.json({ ok: false });
+const COOKIE_NAME = "mimi_admin_auth";
+
+export async function GET(req: NextRequest) {
+  const cookie = req.cookies.get(COOKIE_NAME);
+  const isAuthenticated = !!cookie?.value;
+  
+  return NextResponse.json({ ok: isAuthenticated });
 }

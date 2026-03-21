@@ -70,7 +70,21 @@ export default function AdminLoginPage() {
     };
   }, []);
 
-  // 자동 리디렉션 코드 제거 - 항상 로그인 화면 표시
+  // 이미 인증된 경우 관리자 페이지로 리디렉션
+  useEffect(() => {
+    if (hashReady && (hasAdminAuthCookie() || sessionStorage.getItem(ADMIN_AUTH_KEY))) {
+      fetch("/api/admin-auth/me", { credentials: "include" })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.ok) {
+            window.location.replace("/admin");
+          }
+        })
+        .catch(() => {
+          // 오류 발생 시 로그인 페이지에 머무름
+        });
+    }
+  }, [hashReady]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
