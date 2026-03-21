@@ -132,8 +132,8 @@ export default function GroomerSetupForm() {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main className="flex-1 p-6">
-        <div className="max-w-lg mx-auto">
+      <main className="flex-1 w-full min-w-0 overflow-x-hidden px-4 py-6 sm:px-6">
+        <div className="max-w-lg mx-auto w-full min-w-0">
           <h1 className="text-2xl font-bold text-gray-800 mb-2">디자이너 신청</h1>
           <p className="text-sm text-gray-600 mb-6">내용 작성 후 신청하기를 누르시면, 관리자가 비밀번호를 부여한 후 서비스 개시됩니다.</p>
 
@@ -175,9 +175,9 @@ export default function GroomerSetupForm() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">경력</label>
                 <textarea value={career} onChange={(e) => setCareer(e.target.value)} placeholder="예: 5년차 반려동물 디자이너, OO미용학원 수료" rows={2} className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none resize-none" />
               </div>
-              <div>
+              <div className="min-w-0 max-w-full">
                 <label className="block text-sm font-medium text-gray-700 mb-1">자기 주소지</label>
-                <AddressSearchInput value={address} onChange={setAddress} placeholder="주소 검색 버튼을 클릭하여 입력" />
+                <AddressSearchInput value={address} onChange={setAddress} placeholder="주소 검색 버튼을 클릭하여 입력" className="w-full" />
                 <p className="text-xs text-gray-500 mt-1">주소 검색으로 자동 입력하거나 직접 입력해 주세요</p>
               </div>
               <div>
@@ -192,10 +192,10 @@ export default function GroomerSetupForm() {
               <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
                 <h4 className="text-sm font-medium text-gray-800 mb-2">정산용 계좌 정보 (선택)</h4>
                 <p className="text-xs text-gray-500 mb-2">나중에 프로필에서 추가 가능합니다</p>
-                <div className="grid grid-cols-3 gap-2">
-                  <input type="text" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="은행" className="px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-                  <input type="text" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="계좌번호" className="px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-                  <input type="text" value={accountHolder} onChange={(e) => setAccountHolder(e.target.value)} placeholder="예금주" className="px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 min-w-0">
+                  <input type="text" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="은행" className="min-w-0 px-3 py-2.5 rounded-lg border border-gray-200 text-base" />
+                  <input type="text" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="계좌번호" className="min-w-0 px-3 py-2.5 rounded-lg border border-gray-200 text-base" />
+                  <input type="text" value={accountHolder} onChange={(e) => setAccountHolder(e.target.value)} placeholder="예금주" className="min-w-0 px-3 py-2.5 rounded-lg border border-gray-200 text-base" />
                 </div>
               </div>
               <button onClick={() => setStep("slots")} disabled={!name.trim() || !address.trim()} className="w-full py-3 bg-mimi-orange text-white rounded-xl font-bold disabled:opacity-50">
@@ -214,13 +214,13 @@ export default function GroomerSetupForm() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">{useRange ? "시작일 ~ 종료일" : "날짜 선택"}</label>
                 {useRange ? (
-                  <div className="flex gap-2 items-center">
-                    <input type="date" value={selDate} onChange={(e) => setSelDate(e.target.value)} min={days[0]?.toISOString().slice(0, 10)} max={days[days.length - 1]?.toISOString().slice(0, 10)} className="flex-1 px-4 py-3 rounded-xl border-2 border-gray-200" />
-                    <span>~</span>
-                    <input type="date" value={selDateTo} onChange={(e) => setSelDateTo(e.target.value)} min={selDate || days[0]?.toISOString().slice(0, 10)} max={days[days.length - 1]?.toISOString().slice(0, 10)} className="flex-1 px-4 py-3 rounded-xl border-2 border-gray-200" />
+                  <div className="flex flex-col sm:flex-row gap-2 items-stretch min-w-0 sm:items-center">
+                    <input type="date" value={selDate} onChange={(e) => setSelDate(e.target.value)} min={days[0]?.toISOString().slice(0, 10)} max={days[days.length - 1]?.toISOString().slice(0, 10)} className="min-w-0 flex-1 px-3 sm:px-4 py-3 min-h-[44px] text-base rounded-xl border-2 border-gray-200" />
+                    <span className="hidden sm:inline text-center text-gray-500 shrink-0">~</span>
+                    <input type="date" value={selDateTo} onChange={(e) => setSelDateTo(e.target.value)} min={selDate || days[0]?.toISOString().slice(0, 10)} max={days[days.length - 1]?.toISOString().slice(0, 10)} className="min-w-0 flex-1 px-3 sm:px-4 py-3 min-h-[44px] text-base rounded-xl border-2 border-gray-200" />
                   </div>
                 ) : (
-                  <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-40 overflow-y-auto min-w-0">
                     {days.map((d) => {
                       const dateStr = d.toISOString().slice(0, 10);
                       return (
