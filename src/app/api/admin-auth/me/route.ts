@@ -1,12 +1,17 @@
 /**
  * 관리자 인증 상태 확인 API
- * 항상 인증되지 않은 상태를 반환합니다.
+ * 쿠키를 확인하여 인증 상태를 반환합니다.
  */
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
+const COOKIE_NAME = "mimi_admin_auth";
+
 export async function GET(req: NextRequest) {
-  // 항상 인증되지 않은 상태 반환
-  return NextResponse.json({ ok: false });
+  // 쿠키에서 인증 정보 확인
+  const authCookie = req.cookies.get(COOKIE_NAME);
+  const isAuthenticated = !!authCookie?.value;
+  
+  return NextResponse.json({ ok: isAuthenticated });
 }
