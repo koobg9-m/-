@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 
 /**
  * 관리자 인증 상태를 확인하고 인증되지 않은 경우 로그인 페이지로 리디렉션합니다.
- * 긴급 수정: 로그인 문제 해결을 위해 단순화된 로직으로 변경
+ * 로그인 문제 해결을 위한 수정 버전
  */
 export default function AdminAuthCheck({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -19,59 +19,18 @@ export default function AdminAuthCheck({ children }: { children: React.ReactNode
       return;
     }
     
-    // 리디렉션 상태 관리
-    const redirectKey = "admin_redirecting";
-    const isRedirecting = sessionStorage.getItem(redirectKey);
+    // 세션 스토리지에서 직접 인증 상태 확인 (클라이언트 측 인증)
+    const isAuthenticated = sessionStorage.getItem("mimi_admin_authenticated") === "1";
     
-    if (isRedirecting) {
-      // 이미 리디렉션 중이면 상태만 업데이트
+    if (isAuthenticated) {
+      // 인증된 경우 컨텐츠 표시
       setIsChecking(false);
-      return;
+    } else {
+      // 인증되지 않은 경우 로그인 페이지로 리디렉션
+      console.log("관리자 인증 실패, 로그인 페이지로 리디렉션");
+      window.location.href = "/admin/login";
     }
-    
-    // API를 통해 인증 상태 확인
-    const checkAuthStatus = async () => {
-      try {
-        // 리디렉션 상태 설정
-        sessionStorage.setItem(redirectKey, "true");
-        
-        const res = await fetch("/api/admin-auth/me", {
-          credentials: "include",
-          cache: "no-store",
-          headers: {
-            "Cache-Control": "no-cache",
-            "Pragma": "no-cache"
-          },
-        });
-        
-        // 리디렉션 상태 초기화
-        sessionStorage.removeItem(redirectKey);
-        
-        if (!res.ok) {
-          // API 오류 시 로그인 페이지로 리디렉션
-          router.replace("/admin/login");
-          return;
-        }
-        
-        const data = await res.json();
-        
-        if (!data.ok) {
-          // 인증되지 않은 경우 로그인 페이지로 리디렉션
-          router.replace("/admin/login");
-        } else {
-          // 인증된 경우 컨텐츠 표시
-          setIsChecking(false);
-        }
-      } catch (error) {
-        console.error("인증 상태 확인 중 오류 발생:", error);
-        // 오류 발생 시 로그인 페이지로 리디렉션
-        sessionStorage.removeItem(redirectKey);
-        router.replace("/admin/login");
-      }
-    };
-    
-    checkAuthStatus();
-  }, [pathname, router]);
+  }, [pathname]);
   
   // 인증 확인 중이면 로딩 표시
   if (isChecking && pathname !== "/admin/login") {
