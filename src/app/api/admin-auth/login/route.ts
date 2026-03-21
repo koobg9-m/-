@@ -1,8 +1,14 @@
 /**
  * 운영 관리자 로그인
- * 긴급 수정: Supabase 의존성 제거
+ * - Vercel ADMIN_PASSWORD / ADMIN_PASSWORDS
+ * - Supabase app_data 의 mimi_admin_password_hash (비밀번호 변경 페이지로 저장한 경우)
  */
 import { NextRequest, NextResponse } from "next/server";
+import {
+  getAdminPasswordHashFromDatabase,
+  hashPasswordSha256,
+} from "@/lib/admin-auth-server";
+import { isSupabaseConfiguredServer } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -10,9 +16,18 @@ export const revalidate = 0;
 const COOKIE_NAME = "mimi_admin_auth";
 const COOKIE_MAX_AGE = 60 * 60 * 24; // 24h
 
-// 하드코딩된 비밀번호 목록 (임시 해결책)
-// 여기에 원하는 비밀번호를 추가하거나 수정하세요
-const VALID_PASSWORDS = ["미미살롱2024", "mimi2024", "admin2024", "원하는_새_비밀번호"];
+/** ADMIN_PASSWORD + ADMIN_PASSWORDS(쉼표 구분)만 허용. 저장소에 기본 비밀번호를 넣지 않음. */
+function getAllowedPasswords(): Set<string> {
+  const set = new Set<string>();
+  const primary = process.env.ADMIN_PASSWORD?.trim();
+  if (primary) set.add(primary);
+  const extra = process.env.ADMIN_PASSWORDS?.split(",") ?? [];
+  for (const p of extra) {
+    const t = p.trim();
+    if (t) set.add(t);
+  }
+  return set;
+}
 
 function setAuthCookieResponse(): NextResponse {
   const isProd = process.env.NODE_ENV === "production";
@@ -39,33 +54,66 @@ export async function POST(req: NextRequest) {
   try {
     // 요청 본문 파싱
     const body = await req.json();
-    const password = typeof body.password === "string" ? body.password : "";
-    
-    console.log("Password input received, length:", password.length);
-    
-    // 1. 하드코딩된 비밀번호 확인 (가장 간단한 해결책)
-    if (VALID_PASSWORDS.includes(password)) {
-      console.log("Valid password match found");
+    const password =
+      typeof body.password === "string" ? body.password.trim() : "";
+
+    const allowed = getAllowedPasswords();
+
+    if (allowed.has(password)) {
       return setAuthCookieResponse();
     }
-    
-    // 2. 환경 변수 비밀번호 확인
-    const envPassword = process.env.ADMIN_PASSWORD;
-    if (envPassword && envPassword.length > 0 && password === envPassword) {
-      console.log("Environment password match");
-      return setAuthCookieResponse();
+
+    // 비밀번호 변경 페이지에서 Supabase에 저장한 SHA-256 해시와 비교
+    if (isSupabaseConfiguredServer()) {
+      try {
+        const dbHash = await getAdminPasswordHashFromDatabase();
+        if (dbHash && hashPasswordSha256(password) === dbHash) {
+          return setAuthCookieResponse();
+        }
+      } catch (e) {
+        console.error("[admin-auth/login] DB hash check:", e);
+      }
     }
-    
-    // 비밀번호가 일치하지 않음
+
+    // 환경 변수도 없고 DB 해시도 없으면 로그인 불가 안내
+    if (allowed.size === 0) {
+      let hasDbHash = false;
+      if (isSupabaseConfiguredServer()) {
+        try {
+          const h = await getAdminPasswordHashFromDatabase();
+          hasDbHash = !!(h && h.length > 0);
+        } catch {
+          /* ignore */
+        }
+      }
+      if (!hasDbHash) {
+        console.error("[admin-auth/login] No ADMIN_PASSWORD and no DB hash");
+        return NextResponse.json(
+          {
+            error:
+              "서버에 관리자 비밀번호가 설정되지 않았습니다. Vercel에 ADMIN_PASSWORD를 넣거나, Supabase에 비밀번호 해시가 동기화돼 있는지 확인한 뒤 재배포해 주세요.",
+          },
+          {
+            status: 503,
+            headers: {
+              "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+              Pragma: "no-cache",
+              Expires: "0",
+            },
+          }
+        );
+      }
+    }
+
     return NextResponse.json(
       { error: "비밀번호가 올바르지 않습니다." },
-      { 
+      {
         status: 401,
         headers: {
           "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-          "Pragma": "no-cache",
-          "Expires": "0"
-        }
+          Pragma: "no-cache",
+          Expires: "0",
+        },
       }
     );
   } catch (error) {

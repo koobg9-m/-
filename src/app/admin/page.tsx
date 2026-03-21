@@ -126,8 +126,9 @@ export default function AdminPage() {
   const [pricesSaved, setPricesSaved] = useState(false);
   const [settings, setSettings] = useState(() => getAdminSettings());
   const [settingsSaved, setSettingsSaved] = useState(false);
-  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
-  const [authChecked, setAuthChecked] = useState(false);
+  // 인증 상태는 AdminAuthCheck 컴포넌트에서 처리하므로 제거
+  // const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  // const [authChecked, setAuthChecked] = useState(false);
   const [pwChangeCurrent, setPwChangeCurrent] = useState("");
   const [pwChangeNew, setPwChangeNew] = useState("");
   const [pwChangeConfirm, setPwChangeConfirm] = useState("");
@@ -168,52 +169,15 @@ export default function AdminPage() {
   const [groomerSort, setGroomerSort] = useState<"visits" | "rating" | "name" | "recent">("visits");
   const [groomerDetailModal, setGroomerDetailModal] = useState<{ g: GroomerProfile; completed: number; avgRating: string | null; reviews: number } | null>(null);
   const [groomerSmsBody, setGroomerSmsBody] = useState("");
-  const [syncStatus, setSyncStatus] = useState<{ ok: boolean; configured: boolean; error?: string } | null>(null);
+  const [syncStatus, setSyncStatus] = useState<{ ok: boolean; configured: boolean; error?: string; skipped?: boolean } | null>(null);
   const [serverRefreshLoading, setServerRefreshLoading] = useState(false);
   /** Supabase에서 관리자 데이터 불러온 뒤 요금·포인트·SMS UI 갱신 */
   const [adminDataRevision, setAdminDataRevision] = useState(0);
 
-  useEffect(() => {
-    let cancelled = false;
-    let t: ReturnType<typeof setTimeout>;
-    (async () => {
-      try {
-        if (typeof window === "undefined") {
-          setAuthChecked(true);
-          return;
-        }
-        /** Supabase 해시 로그인(HttpOnly 쿠키) — 서버가 인증됨으로 판단 */
-        try {
-          const me = await fetch("/api/admin-auth/me", { credentials: "include" }).then((r) => r.json());
-          if (!cancelled && me?.ok) {
-            sessionStorage.setItem(ADMIN_AUTH_KEY, "1");
-            setAuthenticated(true);
-            setAuthChecked(true);
-            return;
-          }
-        } catch {
-          /* ignore */
-        }
-        const hash = await getAdminPasswordHash();
-        if (cancelled) return;
-        const auth = sessionStorage.getItem(ADMIN_AUTH_KEY);
-        const hasCookie = hasAdminAuthCookie();
-        setAuthenticated(!!hash && (auth === "1" || hasCookie));
-        if (hasCookie && auth !== "1") sessionStorage.setItem(ADMIN_AUTH_KEY, "1");
-      } catch {
-        /* ignore */
-      } finally {
-        if (!cancelled) setAuthChecked(true);
-      }
-    })();
-    t = setTimeout(() => {
-      if (!cancelled) setAuthChecked(true);
-    }, 1500);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, []);
+  // 인증 체크는 AdminAuthCheck 컴포넌트에서 처리하므로 제거
+  // useEffect(() => {
+  //   // 인증 체크 로직 제거
+  // }, []);
 
   useEffect(() => {
     Promise.all([getBookings(), getGroomerProfiles()]).then(([bList, gList]) => {
@@ -228,7 +192,7 @@ export default function AdminPage() {
 
   /** 로그인 후·Supabase 연동 시 요금·포인트·SMS·플랫폼 설정을 서버와 맞춤 */
   useEffect(() => {
-    if (!authChecked || !authenticated) return;
+    // 이미 AdminAuthCheck에서 인증 확인이 완료된 상태이므로 바로 실행
     (async () => {
       await Promise.all([
         hydrateServicesFromRemote(),
@@ -240,7 +204,7 @@ export default function AdminPage() {
       setSettings(s);
       setAdminDataRevision((r) => r + 1);
     })().catch(() => {});
-  }, [authChecked, authenticated]);
+  }, []);
 
   useEffect(() => {
     if (tab === "customers") {
@@ -290,22 +254,21 @@ export default function AdminPage() {
     if (tab === "points") setPointSettings(getPointSettings());
   }, [tab, adminDataRevision]);
 
-  useEffect(() => {
-    if (authChecked && authenticated === false) {
-      router.replace("/admin/login");
-    }
-  }, [authChecked, authenticated, router]);
+  // 인증 체크 및 리디렉션은 AdminAuthCheck 컴포넌트에서 처리하므로 제거
+  // useEffect(() => {
+  //   // 리디렉션 로직 제거
+  // }, [router]);
 
   /** 미용 추천 리마인더: 관리자 페이지 로드 시 1주일 전 자동 발송 대상 확인 */
   useEffect(() => {
-    if (!authChecked || !authenticated) return;
+    // 이미 AdminAuthCheck에서 인증 확인이 완료된 상태이므로 바로 실행
     checkAndSendGroomingReminders().then(({ sent }) => {
       if (sent > 0) {
         getBookings().then(setBookings);
         setSmsLog(getSmsLog());
       }
     }).catch(() => {});
-  }, [authChecked, authenticated]);
+  }, []);
 
   /** 자동 저장: 요금 (1.5초 디바운스) */
   useEffect(() => {
@@ -763,30 +726,8 @@ export default function AdminPage() {
     setSelectedCustomerKeys(new Set());
   };
 
-  if (!authChecked) {
-    return (
-      <div className="min-h-screen flex flex-col bg-mimi-cream">
-        <Header />
-        <main className="flex-1 flex flex-col items-center justify-center py-16 gap-4">
-          <p className="text-gray-500">로딩 중...</p>
-          <Link href="/admin/login" className="text-sm text-mimi-orange hover:underline">로그인 페이지로 이동</Link>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
-
-  if (authenticated === false) {
-    return (
-      <div className="min-h-screen flex flex-col bg-mimi-cream">
-        <Header />
-        <main className="flex-1 flex items-center justify-center py-16">
-          <p className="text-gray-500">로그인 페이지로 이동 중...</p>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
+  // 인증 체크는 AdminAuthCheck 컴포넌트에서 처리하므로 제거
+  // 이 컴포넌트는 인증된 사용자만 볼 수 있음
 
   type TabId = "dashboard" | "homepage" | "groomers" | "customers" | "time" | "bookings" | "settlement" | "prices" | "points" | "settings";
   const tabs: { id: TabId; label: string }[] = [
@@ -841,6 +782,8 @@ export default function AdminPage() {
                     <span>
                       {!syncStatus
                         ? "연동 확인 중..."
+                        : syncStatus.ok && syncStatus.skipped
+                          ? "✓ 로컬 모드 (Supabase 비활성화)"
                         : syncStatus.ok
                           ? "✓ 서버 동기화 정상"
                           : syncStatus.configured
@@ -908,41 +851,38 @@ export default function AdminPage() {
                   onClick={() => {
                     // 즉시 상태 업데이트로 버튼 비활성화 (시각적 피드백)
                     setServerRefreshLoading(true);
-                    
+
                     // 다음 프레임에서 확인 대화상자 표시 (버튼 비활성화 렌더링 후)
                     requestAnimationFrame(() => {
-                      // 사용자 확인 대화상자
-                      if (
-                        !confirm(
-                          "이 PC 브라우저에 있는 데이터(홈·공지·예약·요금 등)를 Supabase에 올립니다.\n다른 곳(운영 사이트)에 있던 내용은 이 PC 내용으로 덮어씌워질 수 있습니다.\n계속할까요?"
-                        )
-                      ) {
-                        // 취소 시 버튼 다시 활성화
-                        setServerRefreshLoading(false);
-                        return;
-                      }
-                      
-                      // 사용자가 확인한 경우 비동기 작업 시작
                       void (async () => {
                         try {
-                          // 업로드 진행 상태 표시를 위한 상태 업데이트
-                          const progressIndicator = document.createElement('div');
-                          progressIndicator.style.position = 'fixed';
-                          progressIndicator.style.bottom = '20px';
-                          progressIndicator.style.right = '20px';
-                          progressIndicator.style.padding = '10px 15px';
-                          progressIndicator.style.backgroundColor = 'rgba(251, 191, 36, 0.9)';
-                          progressIndicator.style.color = '#78350f';
-                          progressIndicator.style.borderRadius = '6px';
-                          progressIndicator.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
-                          progressIndicator.style.zIndex = '9999';
-                          progressIndicator.textContent = '데이터 업로드 중...';
+                          const status = await getSyncStatus();
+                          const isLocalMode = status.skipped;
+
+                          const confirmMessage = isLocalMode
+                            ? "로컬 모드에서는 데이터가 이 PC의 브라우저 저장소에만 저장됩니다.\n계속하시겠습니까?"
+                            : "이 PC 브라우저에 있는 데이터(홈·공지·예약·요금 등)를 Supabase에 올립니다.\n다른 곳(운영 사이트)에 있던 내용은 이 PC 내용으로 덮어씌워질 수 있습니다.\n계속할까요?";
+
+                          if (!confirm(confirmMessage)) {
+                            setServerRefreshLoading(false);
+                            return;
+                          }
+
+                          const progressIndicator = document.createElement("div");
+                          progressIndicator.style.position = "fixed";
+                          progressIndicator.style.bottom = "20px";
+                          progressIndicator.style.right = "20px";
+                          progressIndicator.style.padding = "10px 15px";
+                          progressIndicator.style.backgroundColor = "rgba(251, 191, 36, 0.9)";
+                          progressIndicator.style.color = "#78350f";
+                          progressIndicator.style.borderRadius = "6px";
+                          progressIndicator.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)";
+                          progressIndicator.style.zIndex = "9999";
+                          progressIndicator.textContent = "데이터 업로드 중...";
                           document.body.appendChild(progressIndicator);
-                          
-                          // 데이터 업로드 실행 (최적화된 배치 처리 버전)
+
                           const r = await pushLocalAppDataToServer();
-                          
-                          // 결과 메시지 생성
+
                           const msg = [
                             `업로드: ${r.pushed.length}개 키`,
                             r.skipped.length ? `건너뜀(비어 있음): ${r.skipped.length}개` : "",
@@ -950,34 +890,29 @@ export default function AdminPage() {
                           ]
                             .filter(Boolean)
                             .join("\n");
-                          
-                          // 상태 업데이트를 위한 데이터 가져오기
-                          // 각 작업 사이에 UI 스레드에 양보
+
                           const bList = await getBookings();
-                          await new Promise<void>(resolve => setTimeout(resolve, 0));
-                          
+                          await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
                           const gList = await getGroomerProfiles();
-                          await new Promise<void>(resolve => setTimeout(resolve, 0));
-                          
+                          await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
                           const nextSettings = await getAdminSettingsAsync();
-                          await new Promise<void>(resolve => setTimeout(resolve, 0));
-                          
-                          const status = await getSyncStatus();
-                          
-                          // 상태 업데이트를 낮은 우선순위로 처리
+                          await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+                          const nextStatus = await getSyncStatus();
+
                           startTransition(() => {
                             setBookings(bList);
                             setGroomers(gList);
                             setSettings(nextSettings);
                             setAdminDataRevision((x) => x + 1);
                             setGroomersRefresh((x) => x + 1);
-                            setSyncStatus(status);
+                            setSyncStatus(nextStatus);
                           });
-                          
-                          // 진행 상태 표시 제거
+
                           document.body.removeChild(progressIndicator);
-                          
-                          // 완료 메시지는 별도 태스크에서 표시
+
                           setTimeout(() => {
                             alert(msg || "완료");
                           }, 100);
@@ -993,7 +928,7 @@ export default function AdminPage() {
                   }}
                   className="px-4 py-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  로컬→서버 업로드
+                  {syncStatus?.skipped ? "로컬 데이터 저장" : "로컬→서버 업로드"}
                 </button>
               </div>
               <AdminLocalBackupCard

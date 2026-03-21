@@ -70,14 +70,40 @@ export async function pushLocalAppDataToServer(): Promise<PushLocalResult> {
   const result: PushLocalResult = { pushed: [], skipped: [], failed: [] };
   if (typeof window === "undefined") return result;
 
+  // Supabase 상태 확인
   const status = await getSyncStatus();
+  const keys = Array.from(new Set<string>([...FIXED_KEYS, ...collectCustomerProfileKeys()]));
+
+  // Supabase가 비활성화되었거나(NEXT_PUBLIC_SKIP_SUPABASE=1) 연동 상태가 정상이 아닌 경우
+  if (status.skipped) {
+    // Supabase가 의도적으로 비활성화된 경우 (로컬 모드)
+    // 로컬 데이터만 처리하고 성공으로 간주
+    console.log("로컬 모드에서 데이터 처리 중 (Supabase 비활성화됨)");
+    
+    // 로컬 데이터 처리 (로컬 스토리지에 저장)
+    for (const key of keys) {
+      const value = parseLocal(key);
+      if (value === undefined) {
+        result.skipped.push(key);
+      } else {
+        // 로컬 스토리지에 다시 저장 (동일한 데이터지만 처리 완료로 표시)
+        try {
+          localStorage.setItem(key, JSON.stringify(value));
+          result.pushed.push(key);
+        } catch (e) {
+          result.failed.push(key);
+        }
+      }
+    }
+    return result;
+  }
+  
+  // Supabase 연동이 비정상인 경우
   if (!status.configured || !status.ok) {
     result.failed.push("(Supabase 연동 비정상 — sync-status 확인)");
     return result;
   }
 
-  const keys = Array.from(new Set<string>([...FIXED_KEYS, ...collectCustomerProfileKeys()]));
-  
   // 배치 크기 - 한 번에 처리할 키의 수
   const BATCH_SIZE = 5;
   

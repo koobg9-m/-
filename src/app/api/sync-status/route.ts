@@ -14,10 +14,20 @@ export async function GET() {
     error?: string;
     testRead?: boolean;
     testWrite?: boolean;
+    skipped?: boolean;
   } = {
     ok: false,
     configured: isSupabaseConfiguredServer(),
   };
+
+  // Supabase 사용을 건너뛰는 경우
+  if (process.env.NEXT_PUBLIC_SKIP_SUPABASE === "1") {
+    result.ok = true;
+    result.configured = false;
+    result.skipped = true;
+    result.error = "Supabase integration is disabled (NEXT_PUBLIC_SKIP_SUPABASE=1)";
+    return NextResponse.json(result);
+  }
 
   if (!result.configured) {
     result.error = "Supabase env not set (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY)";

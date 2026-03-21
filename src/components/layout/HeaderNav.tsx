@@ -28,7 +28,8 @@ export default function HeaderNav() {
         }
         if (isSupabaseConfigured()) {
           const { createClient } = await import("@/lib/supabase/client");
-          const { data: { session } } = await createClient().auth.getSession();
+          const { data } = await createClient().auth.getSession();
+          const session = data?.session;
           if (session?.user?.email) {
             setUser({ email: session.user.email });
           }

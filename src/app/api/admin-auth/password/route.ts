@@ -39,12 +39,17 @@ export async function POST(req: NextRequest) {
     // 로컬 스토리지에 비밀번호 해시 저장 (클라이언트 측에서 처리)
     // 실제 저장은 클라이언트 측에서 처리하므로 여기서는 해시만 반환
     
+    // 서버 환경 변수에 비밀번호 설정이 있는 경우, 해당 비밀번호와 동일하게 설정되었는지 확인
+    const envPassword = process.env.ADMIN_PASSWORD;
+    const isDefaultPassword = envPassword && password === envPassword;
+    
     return NextResponse.json(
       { 
         success: true, 
         message: "비밀번호가 성공적으로 변경되었습니다.",
         hash: passwordHash,  // 클라이언트에서 저장할 해시
-        password: password   // 클라이언트에서 저장할 원본 비밀번호
+        password: password,  // 클라이언트에서 저장할 원본 비밀번호
+        isDefaultPassword: isDefaultPassword // 기본 비밀번호와 동일한지 여부
       },
       {
         headers: {

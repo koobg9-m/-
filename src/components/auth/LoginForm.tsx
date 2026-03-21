@@ -75,9 +75,8 @@ export default function LoginForm() {
       setStep("email_sent");
     } else {
       try {
-        // 항상 프로덕션 URL 사용
-        const redirectTo = "https://mimisalon.vercel.app/auth/callback?next=%2F";
-        
+        const redirectTo = getAuthCallbackUrl();
+
         // Supabase 클라이언트 생성 및 로그인 시도
         const { createClient } = await import("@/lib/supabase/client");
         const supabase = createClient();
@@ -125,10 +124,9 @@ export default function LoginForm() {
     try {
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
-      
-      // 항상 프로덕션 URL 사용
-      const redirectTo = "https://mimisalon.vercel.app/auth/callback?next=%2F";
-      
+
+      const redirectTo = getAuthCallbackUrl();
+
       const { data, error: err } = await supabase.auth.signInWithOAuth({
         provider: "kakao",
         options: { 
@@ -184,19 +182,22 @@ export default function LoginForm() {
 
         {isLocalHost && (
           <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-left text-[12px] text-amber-900 leading-snug">
-            <strong className="block mb-1">localhost 접속 중</strong>
-            주소창이 <code className="text-[11px] bg-amber-100 px-1 rounded">localhost</code>이면{" "}
-            <strong>개발 서버</strong>(<code className="text-[11px]">npm run dev</code>)가 꺼져 있을 때
-            「연결 거부」가 납니다. 실제 사이트로 로그인하려면{" "}
+            <strong className="block mb-1">localhost / 연결 거부 안내</strong>
+            이메일 링크가 <code className="text-[11px] bg-amber-100 px-1 rounded">localhost</code>로 열리면
+            Supabase 대시보드 → Authentication → URL Configuration에서 <strong>Site URL</strong>을
+            운영 주소(예: 배포 도메인)로 바꿔 주세요. 개발만 할 때는{" "}
+            <code className="text-[11px]">NEXT_PUBLIC_USE_LOCAL_AUTH_CALLBACK=1</code> 과 켜진{" "}
+            <code className="text-[11px]">npm run dev</code>가 필요합니다.
+            <br />
             <a
               href="https://mimisalon.vercel.app/login"
-              className="text-mimi-orange font-semibold underline underline-offset-2"
+              className="text-mimi-orange font-semibold underline underline-offset-2 mt-1 inline-block"
               target="_blank"
               rel="noopener noreferrer"
             >
               배포 로그인 페이지
             </a>
-            를 이용하세요.
+            에서 시도해 보세요.
           </div>
         )}
 
@@ -252,7 +253,25 @@ export default function LoginForm() {
               placeholder="example@email.com"
               className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none text-lg"
             />
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {error && (
+              <div className="space-y-2">
+                <p className="text-sm text-red-500">{error}</p>
+                {/magic link|sending.*email|smtp|email.*send/i.test(error) && (
+                  <div className="text-[11px] text-stone-700 bg-amber-50 border border-amber-200 rounded-lg p-3 leading-snug">
+                    <p className="font-semibold text-amber-900 mb-1">메일 발송 오류일 때 (관리자 확인)</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>
+                        Supabase → <strong>Project Settings → Authentication → SMTP</strong>: Brevo Host/Port/Login/
+                        <strong>새 SMTP key</strong> 저장 후 <strong>Save</strong>
+                      </li>
+                      <li>Brevo에서 키를 지웠다면 <strong>새 키를 Supabase에 다시 넣어야</strong> 합니다.</li>
+                      <li>발신 이메일(Sender)이 Brevo에서 <strong>인증된 주소</strong>인지 확인</li>
+                      <li>Supabase → Authentication → <strong>Logs</strong>에서 빨간 오류 문구 확인</li>
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
             <button
               type="submit"
               disabled={loading}

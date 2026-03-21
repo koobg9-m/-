@@ -56,12 +56,22 @@ export default function AdminPasswordPage() {
       
       // 로컬 스토리지에 비밀번호 저장
       const storedPasswords = localStorage.getItem("mimi_admin_passwords");
-      let passwords = storedPasswords ? JSON.parse(storedPasswords) : [];
+      let passwords: string[] = storedPasswords ? (JSON.parse(storedPasswords) as string[]) : [];
+
+      // 기존 비밀번호 제거 후 새 비밀번호만 저장 (최대 3개 유지)
+      passwords = passwords.filter((p) => p !== password);
+      passwords.push(password);
       
-      // 새 비밀번호 추가
-      if (!passwords.includes(password)) {
-        passwords.push(password);
-        localStorage.setItem("mimi_admin_passwords", JSON.stringify(passwords));
+      // 최대 3개의 비밀번호만 유지
+      if (passwords.length > 3) {
+        passwords = passwords.slice(-3);
+      }
+      
+      localStorage.setItem("mimi_admin_passwords", JSON.stringify(passwords));
+      
+      // 비밀번호 해시도 저장
+      if (data.hash) {
+        localStorage.setItem("mimi_admin_password_hash", data.hash);
       }
       
       setSuccess(true);
@@ -132,20 +142,45 @@ export default function AdminPasswordPage() {
               )}
               
               <div className="flex gap-3">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-6 py-3 bg-mimi-orange text-white rounded-xl font-medium hover:bg-mimi-orange/90 disabled:opacity-60"
-                >
-                  {loading ? "변경 중..." : "비밀번호 변경"}
-                </button>
-                
-                <Link
-                  href="/admin"
-                  className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300"
-                >
-                  취소
-                </Link>
+                {!success ? (
+                  <>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="px-6 py-3 bg-mimi-orange text-white rounded-xl font-medium hover:bg-mimi-orange/90 disabled:opacity-60"
+                    >
+                      {loading ? "변경 중..." : "비밀번호 변경"}
+                    </button>
+                    
+                    <Link
+                      href="/admin"
+                      className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300"
+                    >
+                      취소
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/admin"
+                      className="px-6 py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700"
+                    >
+                      확인 완료
+                    </Link>
+                    
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSuccess(false);
+                        setPassword("");
+                        setConfirmPassword("");
+                      }}
+                      className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300"
+                    >
+                      다시 변경
+                    </button>
+                  </>
+                )}
               </div>
             </form>
           </div>

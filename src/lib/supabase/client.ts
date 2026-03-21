@@ -36,8 +36,11 @@ export function createClient(): SupabaseClient {
 
     supabaseInstance = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
       auth: {
+        flowType: "pkce",
         autoRefreshToken: true,
         persistSession: true,
+        /** 매직 링크 후 /auth/callback 의 ?code= / #access_token 을 자동 파싱 */
+        detectSessionInUrl: true,
       },
     });
 

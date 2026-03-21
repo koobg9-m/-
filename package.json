@@ -4,12 +4,17 @@
   "private": true,
   "scripts": {
     "dev": "cross-env CHOKIDAR_USEPOLLING=true WATCHPACK_POLLING=true node --max-old-space-size=4096 node_modules/next/dist/bin/next dev -p 5006",
+    "dev:simple": "node --max-old-space-size=4096 node_modules/next/dist/bin/next dev -p 5006",
     "dev:auto": "npx concurrently -n dev,push -c blue,yellow \"npm run dev\" \"npm run watch:push\"",
-    "dev:restart": "node -e \"try{require('child_process').execSync('npx --yes kill-port 5006',{stdio:'inherit'})}catch(e){}\" && npm run dev",
-    "dev:fresh": "npm run clean && node -e \"try{require('child_process').execSync('npx --yes kill-port 5006',{stdio:'inherit'})}catch(e){}\" && npm run dev",
+    "dev:restart": "powershell -ExecutionPolicy Bypass -File ./scripts/dev-restart.ps1",
+    "dev:restart:unix": "node -e \"try{require('child_process').execSync('npx --yes kill-port 5006',{stdio:'inherit'})}catch(e){}\" && npm run dev",
+    "dev:fresh": "powershell -ExecutionPolicy Bypass -File ./scripts/dev-fresh.ps1",
+    "dev:fresh:unix": "npm run clean && node -e \"try{require('child_process').execSync('npx --yes kill-port 5006',{stdio:'inherit'})}catch(e){}\" && npm run dev",
     "build": "next build",
-    "deploy": "npm run build && npx vercel --prod --yes --force --scope koobg9-ms-projects",
-    "deploy:force": "npm run clean && npm run build && npx vercel --prod --yes --force --scope koobg9-ms-projects",
+    "deploy": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy.ps1",
+    "deploy:unix": "npm run build && npx vercel --prod --yes --force --scope koobg9-ms-projects",
+    "deploy:force": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy-force.ps1",
+    "deploy:force:unix": "npm run clean && npm run build && npx vercel --prod --yes --force --scope koobg9-ms-projects",
     "start": "next start -p 5006",
     "lint": "next lint",
     "clean": "node -e \"try{require('fs').rmSync('.next',{recursive:true})}catch(e){}\"",
@@ -19,15 +24,16 @@
     "logo:transparent": "node scripts/remove-logo-bg.js",
     "push": "node scripts/auto-push.js",
     "watch:push": "node scripts/auto-push.js --watch",
-    "sync": "node scripts/auto-push.js && npm run deploy"
+    "sync": "powershell -ExecutionPolicy Bypass -File ./scripts/sync.ps1",
+    "sync:unix": "node scripts/auto-push.js && npm run deploy"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.99.2",
     "next": "14.2.35",
     "qrcode": "^1.5.4",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
     "xlsx": "^0.18.5"
   },
   "overrides": {
@@ -46,5 +52,9 @@
     "sharp": "^0.34.5",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
+  },
+  "resolutions": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
   }
 }

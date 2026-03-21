@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
@@ -38,21 +38,19 @@ function waitForAuthSession(supabase: SupabaseClient, maxMs = 25000): Promise<Se
 
     const timer = setTimeout(() => finish(null), maxMs);
 
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: listenerData } = supabase.auth.onAuthStateChange((event, session) => {
       if (session && (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED")) {
         finish(session);
       }
     });
-    sub = data?.subscription;
+    sub = listenerData?.subscription;
 
     let polls = 0;
     pollIv = setInterval(async () => {
       polls += 1;
       try {
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.getSession();
+        const { data, error } = await supabase.auth.getSession();
+        const session = data?.session ?? null;
         if (!error && session) {
           finish(session);
           return;
@@ -72,6 +70,7 @@ function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
+  const finishedRef = useRef(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured()) {
@@ -84,7 +83,7 @@ function AuthCallbackContent() {
         // Supabase 클라이언트 생성
         const { createClient } = await import("@/lib/supabase/client");
         const supabase = createClient();
-        
+
         // 리디렉션 경로 안전하게 가져오기
         let next = "/";
         try {
@@ -92,6 +91,19 @@ function AuthCallbackContent() {
           next = nextRaw && typeof nextRaw === 'string' && nextRaw.startsWith("/") ? nextRaw : "/";
         } catch (paramError) {
           console.error("URL 파라미터 파싱 오류:", paramError);
+        }
+
+        // URL에 이미 세션이 반영된 경우(특히 모바일) 즉시 통과
+        try {
+          const { data: earlyData } = await supabase.auth.getSession();
+          const early = earlyData?.session;
+          if (early) {
+            finishedRef.current = true;
+            router.replace(next);
+            return;
+          }
+        } catch {
+          /* continue */
         }
 
         // Supabase 오류 리다이렉트 (?error=...&error_description=...)
@@ -114,6 +126,7 @@ function AuthCallbackContent() {
             try {
               const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
               if (!exchangeError) {
+                finishedRef.current = true;
                 router.replace(next);
                 return;
               }
@@ -121,8 +134,7 @@ function AuthCallbackContent() {
               // 코드 교환 실패 시 세션 대기 시도
               try {
                 const session = await waitForAuthSession(supabase);
-                if (session) {
-                  // 사용자 프로필 정보 처리
+                if (session?.user) {
                   try {
                     const profile = await getUserProfile(supabase, session.user);
                     if (profile) {
@@ -131,7 +143,8 @@ function AuthCallbackContent() {
                   } catch (profileError) {
                     console.error("프로필 정보 처리 오류:", profileError);
                   }
-                  
+
+                  finishedRef.current = true;
                   router.replace(next);
                   return;
                 }
@@ -147,10 +160,11 @@ function AuthCallbackContent() {
               // 코드 교환 실패 시에도 세션 확인 시도
               const session = await waitForAuthSession(supabase, 8000);
               if (session) {
+                finishedRef.current = true;
                 router.replace(next);
                 return;
               }
-              
+
               setError("인증 코드 처리 중 오류가 발생했습니다.");
               return;
             }

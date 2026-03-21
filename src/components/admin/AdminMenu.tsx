@@ -56,12 +56,24 @@ export default function AdminMenu() {
               onClick={() => {
                 setIsMenuOpen(false);
                 // 로그아웃 처리
-                fetch("/api/admin-auth/logout", { method: "POST" })
+                fetch("/api/admin-auth/logout", { 
+                  method: "POST",
+                  credentials: "include",
+                  headers: {
+                    "Cache-Control": "no-cache",
+                    "Pragma": "no-cache"
+                  }
+                })
                   .then(() => {
+                    // 세션 스토리지에서 인증 상태 제거
+                    sessionStorage.removeItem("mimi_admin_authenticated");
+                    // 로그인 페이지로 리디렉션
                     window.location.href = "/admin/login";
                   })
                   .catch(err => {
                     console.error("로그아웃 오류:", err);
+                    // 오류 발생 시에도 세션 스토리지 제거 및 리디렉션
+                    sessionStorage.removeItem("mimi_admin_authenticated");
                     window.location.href = "/admin/login";
                   });
               }}

@@ -3,7 +3,8 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
 type AuthState = {
-  user: { phone: string; demo?: boolean } | null;
+  /** 이메일 로그인은 phone 없이 email 만 있을 수 있음 */
+  user: { phone?: string; email?: string; demo?: boolean } | null;
   isLoading: boolean;
   logout: () => void;
 };
@@ -18,7 +19,7 @@ const isDemoMode =
   !supabaseUrl.startsWith("http");
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<{ phone: string; demo?: boolean } | null>(null);
+  const [user, setUser] = useState<{ phone?: string; email?: string; demo?: boolean } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -48,18 +49,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const { createClient } = await import("@/lib/supabase/client");
         const supabase = createClient();
-        const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+        const { data: userData } = await supabase.auth.getUser();
+        const supabaseUser = userData?.user;
         if (supabaseUser?.phone) {
-          setUser({ phone: supabaseUser.phone });
+          setUser({ phone: supabaseUser.phone, email: supabaseUser.email ?? undefined });
+        } else if (supabaseUser?.email) {
+          setUser({ email: supabaseUser.email });
         }
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-          if (session?.user?.phone) {
-            setUser({ phone: session.user.phone });
+        const { data: subData } = supabase.auth.onAuthStateChange((_event, session) => {
+          const u = session?.user;
+          if (u?.phone) {
+            setUser({ phone: u.phone, email: u.email ?? undefined });
+          } else if (u?.email) {
+            setUser({ email: u.email });
           } else {
             setUser(null);
           }
         });
-        unsubscribe = () => subscription.unsubscribe();
+        unsubscribe = () => subData?.subscription?.unsubscribe();
       } catch {
         setUser(null);
       } finally {

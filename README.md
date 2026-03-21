@@ -38,6 +38,7 @@
    - Copy `.env.example` to `.env.local`
    - Add your Supabase project URL and anon key
    - **프로덕션 설정**: [SETUP.md](./SETUP.md) 참고 (Supabase, Auth, Vercel)
+   - **로컬만 나중에 다시 손볼 때**: [LOCAL_DEV.md](./LOCAL_DEV.md) 한 페이지에 모아 둠
 
 3. **Run the development server**
    ```bash

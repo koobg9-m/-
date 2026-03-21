@@ -65,7 +65,14 @@ export async function saveData(key: string, value: unknown): Promise<boolean> {
 }
 
 /** 동기화 상태 진단 */
-export async function getSyncStatus(): Promise<{ ok: boolean; configured: boolean; error?: string }> {
+export async function getSyncStatus(): Promise<{ 
+  ok: boolean; 
+  configured: boolean; 
+  error?: string;
+  skipped?: boolean;
+  testRead?: boolean;
+  testWrite?: boolean;
+}> {
   try {
     const res = await fetch(`${getApiUrl("/api/sync-status")}?_t=${Date.now()}`, {
       cache: "no-store",

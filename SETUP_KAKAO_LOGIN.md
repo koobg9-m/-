@@ -25,7 +25,7 @@
 ### 1.4 리디렉션 URI 설정
 1. "카카오 로그인" 메뉴의 "Redirect URI" 섹션에서 "등록하기" 버튼을 클릭합니다.
 2. 다음 URI를 추가합니다:
-   - 개발 환경: `http://localhost:3000/auth/callback`
+   - 개발 환경: `http://localhost:5006/auth/callback` (이 프로젝트 dev 포트는 **5006**, Next 기본 3000 아님)
    - 프로덕션 환경: `https://mimisalon.vercel.app/auth/callback`
 
 ### 1.5 앱 키 확인

@@ -90,9 +90,11 @@ NEXT_PUBLIC_DEMO_AUTH=false
 | **Redirect URL** | 위 3단계 URL이 Supabase에 **정확히** 들어가 있는지(포트 5006, `**` 포함). **고객이 접속하는 주소**와 같아야 함 (`www` 유무, `http`/`https` 포함). |
 | **Site URL** | Supabase **Authentication → URL Configuration → Site URL** 이 실제 서비스 도메인과 맞는지 (다르면 메일 속 링크가 엉뚱한 곳으로 갈 수 있음). |
 | **스팸·지연** | 기본 SMTP는 시간당 통수 제한이 있을 수 있음. Custom SMTP 권장(운영). |
+| **한도 초과** | [SETUP_BREVO_SMTP.md](./SETUP_BREVO_SMTP.md) — Brevo SMTP를 Supabase에 연결하는 **세부 단계**. |
 | **메일에서 링크를 눌렀는데 안 될 때** | 메일 앱 **내장 브라우저**에서 토큰이 막히는 경우가 있음 → **Safari/Chrome 등으로 링크 열기** 시도. Supabase **Auth → Logs** 에서 오류 확인. |
 | **다른 기기에서 링크 열기** | implicit 플로우로 교차 기기 동작을 맞춰 둠. 그래도 안 되면 위 Redirect·Site URL 재확인. |
 | **ERR_CONNECTION_REFUSED · localhost** | 주소창이나 메일 링크가 `http://localhost:...` 인데 **개발 서버(`npm run dev`)가 꺼져 있으면** 브라우저가 거부합니다. **해결:** (1) **https://mimisalon.vercel.app/login** 에서 다시 「로그인 링크 받기」 (최신 코드는 로컬에서도 기본으로 배포 주소로 링크를 보냄). (2) Supabase **Authentication → URL Configuration → Site URL** 이 `https://mimisalon.vercel.app` 인지 확인(로컬만 있으면 메일이 엉뚱할 수 있음). (3) **Redirect URLs**에 `https://mimisalon.vercel.app/auth/callback**` 포함. |
+| **`localhost:3000/#access_token` · 거부한 호스트** | Supabase 기본 예시는 포트 **3000**인데, 이 프로젝트 `npm run dev`는 **5006**입니다. 대시보드 **Site URL** 이 `http://localhost:3000` 이면 메일/리다이렉트가 3000으로 가서 연결 거부·호스트 불일치가 납니다. **해결:** Site URL 을 `http://localhost:5006` 로 바꾸거나 운영 도메인으로 두고, **Redirect URLs**에 `http://localhost:5006/auth/callback**` 추가. 로컬 콜백을 쓸 때는 `.env.local`에 `NEXT_PUBLIC_USE_LOCAL_AUTH_CALLBACK=1` 권장. |
 
 ---
 

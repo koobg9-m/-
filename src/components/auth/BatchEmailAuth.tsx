@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
+import { getAuthCallbackUrl } from "@/lib/auth-callback-url";
 
 type EmailStatus = {
   email: string;
@@ -74,7 +75,7 @@ export default function BatchEmailAuth() {
 
     try {
       const supabase = createClient();
-      const redirectTo = "https://mimisalon.vercel.app/auth/callback?next=%2F";
+      const redirectTo = getAuthCallbackUrl();
 
       // 배치 단위로 처리
       for (let i = 0; i < validEmails.length; i += BATCH_SIZE) {

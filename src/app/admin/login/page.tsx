@@ -35,33 +35,7 @@ export default function AdminLoginPage() {
     setLoading(true);
     
     try {
-      // 하드코딩된 비밀번호 목록
-      const validPasswords = ["미미살롱2024", "mimi2024", "admin2024", "원하는_새_비밀번호"];
-      
-      // 로컬 스토리지에 저장된 비밀번호 확인
-      const storedPasswords = localStorage.getItem("mimi_admin_passwords");
-      if (storedPasswords) {
-        try {
-          const customPasswords = JSON.parse(storedPasswords);
-          // 로컬 스토리지에 저장된 비밀번호도 유효한 비밀번호 목록에 추가
-          customPasswords.forEach((pwd: string) => {
-            if (!validPasswords.includes(pwd)) {
-              validPasswords.push(pwd);
-            }
-          });
-        } catch (e) {
-          console.error("저장된 비밀번호 파싱 오류:", e);
-        }
-      }
-      
-      if (validPasswords.includes(passwordInput)) {
-        // 로그인 성공 - 클라이언트 측 인증
-        sessionStorage.setItem(ADMIN_AUTH_KEY, "1");
-        window.location.href = "/admin";
-        return;
-      }
-      
-      // 서버 API 호출 시도
+      // 인증은 서버(API + 쿠키)만 사용. 화면/저장소에 비밀번호 목록을 두지 않음.
       const res = await fetch("/api/admin-auth/login", {
         method: "POST",
         headers: { 
@@ -83,8 +57,10 @@ export default function AdminLoginPage() {
         return;
       }
       
-      // 로그인 실패
-      setPasswordError(typeof data.error === "string" ? data.error : "비밀번호가 올바르지 않습니다.");
+      // 로그인 실패 (401 비밀번호 불일치 / 503 서버에 ADMIN_PASSWORD 없음 등)
+      setPasswordError(
+        typeof data.error === "string" ? data.error : "비밀번호가 올바르지 않습니다."
+      );
     } catch (error) {
       console.error("로그인 처리 중 오류 발생:", error);
       setPasswordError("로그인 처리 중 오류가 발생했습니다. 다시 시도해 주세요.");
@@ -114,8 +90,8 @@ export default function AdminLoginPage() {
           <p className="text-sm text-gray-600 mb-4">관리자 비밀번호를 입력하세요.</p>
           
           <div className="text-xs text-amber-600 mb-3 p-2 bg-amber-50 rounded-lg">
-            <p className="font-medium">사용 가능한 비밀번호:</p>
-            <p>미미살롱2024, mimi2024, admin2024, 원하는_새_비밀번호</p>
+            <p className="font-medium">관리자 로그인 안내:</p>
+            <p>관리자 페이지 접근을 위해 비밀번호를 입력해주세요.</p>
           </div>
           
           <form onSubmit={handleSubmit} className="space-y-4">
