@@ -38,21 +38,30 @@ export default function AdminPasswordPage() {
     setLoading(true);
     
     try {
-      // 하드코딩된 비밀번호 목록에 직접 추가
-      // 실제로는 서버에 저장하는 것이 좋지만, 현재 문제 해결을 위해 로컬에 저장
-      const validPasswords = ["미미살롱2024", "mimi2024", "admin2024", "원하는_새_비밀번호"];
+      // 비밀번호 변경 API 호출
+      const response = await fetch("/api/admin-auth/password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ password }),
+      });
       
-      // 이미 목록에 있는지 확인
-      if (!validPasswords.includes(password)) {
-        // 로컬 스토리지에 저장
-        const storedPasswords = localStorage.getItem("mimi_admin_passwords");
-        let passwords = storedPasswords ? JSON.parse(storedPasswords) : [];
-        
-        // 새 비밀번호 추가
-        if (!passwords.includes(password)) {
-          passwords.push(password);
-          localStorage.setItem("mimi_admin_passwords", JSON.stringify(passwords));
-        }
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "비밀번호 변경 중 오류가 발생했습니다.");
+      }
+      
+      const data = await response.json();
+      
+      // 로컬 스토리지에 비밀번호 저장
+      const storedPasswords = localStorage.getItem("mimi_admin_passwords");
+      let passwords = storedPasswords ? JSON.parse(storedPasswords) : [];
+      
+      // 새 비밀번호 추가
+      if (!passwords.includes(password)) {
+        passwords.push(password);
+        localStorage.setItem("mimi_admin_passwords", JSON.stringify(passwords));
       }
       
       setSuccess(true);

@@ -1,6 +1,6 @@
 /**
  * 운영 관리자 로그인
- * 긴급 수정: 로그인 문제 해결을 위해 단순화된 로직으로 변경
+ * 긴급 수정: Supabase 의존성 제거
  */
 import { NextRequest, NextResponse } from "next/server";
 

@@ -1,5 +1,6 @@
 /**
  * 관리자 비밀번호 변경 API
+ * 긴급 수정: Supabase 의존성 제거
  */
 import { NextRequest, NextResponse } from "next/server";
 import { hashPasswordSha256 } from "@/lib/admin-auth-server";
@@ -42,7 +43,8 @@ export async function POST(req: NextRequest) {
       { 
         success: true, 
         message: "비밀번호가 성공적으로 변경되었습니다.",
-        hash: passwordHash  // 클라이언트에서 저장할 해시
+        hash: passwordHash,  // 클라이언트에서 저장할 해시
+        password: password   // 클라이언트에서 저장할 원본 비밀번호
       },
       {
         headers: {
