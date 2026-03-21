@@ -12,12 +12,6 @@ export const revalidate = 0;
 const ADMIN_PW_HASH_KEY = "mimi_admin_password_hash";
 const COOKIE_NAME = "mimi_admin_auth";
 
-// Supabase app_data 테이블 타입 정의
-interface AppData {
-  key: string;
-  value: string;
-}
-
 export async function POST(req: NextRequest) {
   try {
     // 인증 확인
@@ -52,13 +46,14 @@ export async function POST(req: NextRequest) {
       try {
         const supabase = getSupabaseAdmin();
         
-        // app_data 테이블에 비밀번호 해시 저장
-        const { error } = await supabase
-          .from("app_data")
-          .upsert(
-            { key: ADMIN_PW_HASH_KEY, value: passwordHash } as AppData,
-            { onConflict: "key" }
-          );
+        // 기존 데이터 삭제 후 새로 추가
+        await supabase.from("app_data").delete().eq("key", ADMIN_PW_HASH_KEY);
+        
+        // 새 데이터 추가
+        const { error } = await supabase.from("app_data").insert({
+          key: ADMIN_PW_HASH_KEY,
+          value: passwordHash
+        });
         
         if (error) {
           console.error("비밀번호 해시 저장 오류:", error);
