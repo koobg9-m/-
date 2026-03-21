@@ -87,47 +87,70 @@ export default function CustomerProfileForm({ onComplete, initialData, submitLab
     <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6 w-full max-w-full min-w-0">
       <p className="text-gray-600 text-sm sm:text-base leading-relaxed">고객 정보와 반려동물을 등록해 주세요 (수정 가능)</p>
 
-      <div className="space-y-3 sm:space-y-4">
-        <h3 className="font-bold text-gray-800 text-base sm:text-lg">고객 정보</h3>
-        <div className="min-w-0">
-          <label className="block text-sm font-medium text-gray-700 mb-1">이름 *</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="홍길동"
-            className="w-full min-w-0 px-3 sm:px-4 py-3 min-h-[44px] text-base rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none"
-            required
-            autoComplete="name"
-          />
+      <div className="rounded-2xl border border-stone-200 bg-white shadow-[var(--shadow-card)] p-4 sm:p-6 space-y-5 sm:space-y-6">
+        <div>
+          <h3 className="font-bold text-gray-800 text-base sm:text-lg">고객 정보</h3>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">예약·연락에 사용되며 이후에도 수정할 수 있어요.</p>
         </div>
-        <div className="min-w-0">
-          <label className="block text-sm font-medium text-gray-700 mb-1">연락처 *</label>
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="010-1234-5678"
-            className="w-full min-w-0 px-3 sm:px-4 py-3 min-h-[44px] text-base rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none"
-            required
-            autoComplete="tel"
-            inputMode="tel"
-          />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          <div className="min-w-0">
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">이름 *</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="홍길동"
+              className="w-full min-w-0 px-3 sm:px-4 py-3 min-h-[44px] text-base rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none"
+              required
+              autoComplete="name"
+            />
+          </div>
+          <div className="min-w-0">
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">연락처 *</label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="010-1234-5678"
+              className="w-full min-w-0 px-3 sm:px-4 py-3 min-h-[44px] text-base rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none"
+              required
+              autoComplete="tel"
+              inputMode="tel"
+            />
+          </div>
         </div>
-        <div className="min-w-0">
-          <label className="block text-sm font-medium text-gray-700 mb-1">주소 *</label>
-          <AddressSearchInput value={address} onChange={setAddress} placeholder="주소 검색" />
-          <input
-            type="text"
-            value={detailAddress}
-            onChange={(e) => setDetailAddress(e.target.value)}
-            placeholder="상세 주소 (동/호수)"
-            className="w-full min-w-0 mt-2 px-3 sm:px-4 py-3 min-h-[44px] text-base rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none"
-            autoComplete="address-line2"
-          />
+
+        <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-4 space-y-4 min-w-0">
+          <div className="border-b border-amber-200/60 pb-3">
+            <p className="text-sm font-semibold text-gray-900">방문 주소 *</p>
+            <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+              <span className="font-medium text-gray-700">① 기본 주소</span>는 검색으로 선택하거나 직접 입력하고,{" "}
+              <span className="font-medium text-gray-700">② 상세 주소</span>에 동·호수를 적어 주세요.
+            </p>
+          </div>
+          <div className="min-w-0 space-y-2">
+            <label className="block text-sm font-medium text-gray-800">① 기본 주소 (도로명/지번)</label>
+            <p className="text-xs text-gray-500 -mt-0.5">우편번호 찾기로 선택하면 자동으로 채워집니다.</p>
+            <AddressSearchInput value={address} onChange={setAddress} placeholder="예: 서울시 강남구 테헤란로 …" />
+          </div>
+          <div className="min-w-0 space-y-2">
+            <label className="block text-sm font-medium text-gray-800">② 상세 주소</label>
+            <p className="text-xs text-gray-500 -mt-0.5">아파트 동·호, 빌라 호수, 건물명 등</p>
+            <input
+              type="text"
+              value={detailAddress}
+              onChange={(e) => setDetailAddress(e.target.value)}
+              placeholder="예: 101동 1202호"
+              className="w-full min-w-0 px-3 sm:px-4 py-3 min-h-[44px] text-base rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none bg-white"
+              autoComplete="address-line2"
+            />
+          </div>
         </div>
-        <div className="min-w-0">
-          <label className="block text-sm font-medium text-gray-700 mb-1">이메일</label>
+
+        <div className="min-w-0 pt-1 border-t border-stone-100">
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">이메일 (선택)</label>
+          <p className="text-xs text-gray-500 mb-2">알림·안내 수신에 사용됩니다.</p>
           <input
             type="email"
             value={email}

@@ -153,7 +153,9 @@ export default function AdminPage() {
   const [customerSearch, setCustomerSearch] = useState("");
   const [selectedCustomerKeys, setSelectedCustomerKeys] = useState<Set<string>>(new Set());
   const [smsBulkTemplateId, setSmsBulkTemplateId] = useState<string>("");
-  const [groomerPwModal, setGroomerPwModal] = useState<{ id: string; name: string } | null>(null);
+  const [groomerPwModal, setGroomerPwModal] = useState<{ id: string; name: string; phone?: string } | null>(null);
+  /** 비밀번호 설정 직후 디자이너에게 전달용 (복사·문자) */
+  const [groomerPwDeliver, setGroomerPwDeliver] = useState<{ name: string; password: string; phone?: string } | null>(null);
   const [groomerPwInput, setGroomerPwInput] = useState("");
   const [groomerPwError, setGroomerPwError] = useState("");
   const [groomerSearch, setGroomerSearch] = useState("");
@@ -1205,7 +1207,7 @@ export default function AdminPage() {
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      setGroomerPwModal({ id: g.id, name: g.name });
+                                      setGroomerPwModal({ id: g.id, name: g.name, phone: g.phone });
                                       setGroomerPwInput("");
                                       setGroomerPwError("");
                                     }}
@@ -1277,7 +1279,7 @@ export default function AdminPage() {
                     <div className="flex flex-wrap gap-2 mb-4">
                       <button
                         onClick={() => {
-                          setGroomerPwModal({ id: groomerDetailModal.g.id, name: groomerDetailModal.g.name });
+                          setGroomerPwModal({ id: groomerDetailModal.g.id, name: groomerDetailModal.g.name, phone: groomerDetailModal.g.phone });
                           setGroomerPwInput("");
                           setGroomerPwError("");
                           setGroomerDetailModal(null);
@@ -1329,7 +1331,10 @@ export default function AdminPage() {
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4" onClick={() => setGroomerPwModal(null)}>
                   <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl" onClick={(e) => e.stopPropagation()}>
                     <h3 className="font-bold text-gray-800 mb-2">디자이너 비밀번호 {groomers.find((x) => x.id === groomerPwModal.id)?.passwordHash ? "변경" : "부여"}</h3>
-                    <p className="text-sm text-gray-600 mb-4">{groomerPwModal.name}님의 대시보드 로그인 비밀번호를 설정합니다.</p>
+                    <p className="text-sm text-gray-600 mb-2">{groomerPwModal.name}님의 대시보드 로그인 비밀번호를 설정합니다.</p>
+                    <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200/80 rounded-lg px-3 py-2 mb-4">
+                      설정 완료 후 <strong>디자이너에게 전달</strong>할 수 있도록 안내 문구·복사 화면이 이어서 열립니다. 전화번호가 등록된 경우 문자앱 연결도 제공합니다.
+                    </p>
                     <input
                       type="password"
                       value={groomerPwInput}
@@ -1346,18 +1351,140 @@ export default function AdminPage() {
                             setGroomerPwError("비밀번호는 6자 이상이어야 합니다.");
                             return;
                           }
-                          const h = await hashPassword(groomerPwInput);
-                          await updateGroomer(groomerPwModal.id, { passwordHash: h, passwordPlain: groomerPwInput });
+                          const plain = groomerPwInput;
+                          const meta = groomerPwModal;
+                          const h = await hashPassword(plain);
+                          await updateGroomer(meta.id, { passwordHash: h, passwordPlain: plain });
                           setGroomerPwModal(null);
                           setGroomerPwInput("");
                           setGroomersRefresh((k) => k + 1);
-                          alert("비밀번호가 설정되었습니다.");
+                          setGroomerPwDeliver({ name: meta.name, password: plain, phone: meta.phone });
                         }}
                         className="flex-1 py-2 bg-mimi-orange text-white rounded-lg font-medium"
                       >
                         설정
                       </button>
                     </div>
+                  </div>
+                </div>
+              )}
+              {groomerPwDeliver && (
+                <div
+                  className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4"
+                  onClick={() => setGroomerPwDeliver(null)}
+                >
+                  <div
+                    className="bg-white rounded-xl p-5 sm:p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-xl"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <h3 className="font-bold text-gray-900 text-lg mb-1">디자이너에게 비밀번호 전달</h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      아래 내용을 <strong>전화·문자·카카오</strong> 등 안전한 방법으로{" "}
+                      <strong>{groomerPwDeliver.name}</strong> 디자이너에게 알려 주세요. 관리자 목록에도 평문이 표시되므로
+                      나중에 다시 확인할 수 있습니다.
+                    </p>
+                    {groomerPwDeliver.phone ? (
+                      <p className="text-sm text-gray-700 mb-3">
+                        등록 전화: <span className="font-mono font-medium">{groomerPwDeliver.phone}</span>
+                      </p>
+                    ) : (
+                      <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+                        등록된 전화번호가 없습니다. 프로필에 연락처를 입력한 뒤 문자앱 바로가기를 쓰거나, 직접 연락해 주세요.
+                      </p>
+                    )}
+                    <div className="space-y-3 mb-4">
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 mb-1">비밀번호</p>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <code className="flex-1 px-3 py-2.5 rounded-lg bg-gray-100 border border-gray-200 text-base font-mono break-all">
+                            {groomerPwDeliver.password}
+                          </code>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await navigator.clipboard.writeText(groomerPwDeliver.password);
+                                alert("비밀번호가 복사되었습니다.");
+                              } catch {
+                                alert("복사에 실패했습니다. 직접 선택해 복사해 주세요.");
+                              }
+                            }}
+                            className="px-4 py-2.5 bg-gray-800 text-white rounded-lg text-sm font-medium shrink-0"
+                          >
+                            비밀번호 복사
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 mb-1">전달용 안내 문구 (통째로 복사)</p>
+                        <textarea
+                          readOnly
+                          rows={8}
+                          className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-gray-50 font-sans leading-relaxed"
+                          value={(() => {
+                            const origin = typeof window !== "undefined" ? window.location.origin : "";
+                            const loginUrl = origin ? `${origin}/groomer` : "/groomer";
+                            return `[미미살롱] ${groomerPwDeliver.name} 디자이너님
+
+디자이너 대시보드 주소:
+${loginUrl}
+
+로그인 비밀번호가 설정되었습니다.
+비밀번호: ${groomerPwDeliver.password}
+
+※ 본인이 아니면 관리자에게 연락 주세요.`;
+                          })()}
+                        />
+                        <div className="flex flex-col sm:flex-row gap-2 mt-2">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const origin = typeof window !== "undefined" ? window.location.origin : "";
+                              const loginUrl = origin ? `${origin}/groomer` : "/groomer";
+                              const full = `[미미살롱] ${groomerPwDeliver.name} 디자이너님
+
+디자이너 대시보드 주소:
+${loginUrl}
+
+로그인 비밀번호가 설정되었습니다.
+비밀번호: ${groomerPwDeliver.password}
+
+※ 본인이 아니면 관리자에게 연락 주세요.`;
+                              try {
+                                await navigator.clipboard.writeText(full);
+                                alert("안내 문구가 복사되었습니다.");
+                              } catch {
+                                alert("복사에 실패했습니다.");
+                              }
+                            }}
+                            className="flex-1 py-2.5 bg-mimi-orange text-white rounded-lg text-sm font-medium"
+                          >
+                            안내 문구 복사
+                          </button>
+                          {groomerPwDeliver.phone && (
+                            <a
+                              href={`sms:${groomerPwDeliver.phone.replace(/\D/g, "")}?body=${encodeURIComponent(
+                                (() => {
+                                  const origin = typeof window !== "undefined" ? window.location.origin : "";
+                                  const loginUrl = origin ? `${origin}/groomer` : "/groomer";
+                                  return `[미미살롱] ${groomerPwDeliver.name} 디자이너님\n\n대시보드: ${loginUrl}\n\n비밀번호: ${groomerPwDeliver.password}\n\n※ 본인이 아니면 관리자에게 연락 주세요.`;
+                                })()
+                              )}`}
+                              className="flex-1 py-2.5 text-center bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700"
+                            >
+                              문자앱으로 열기
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setGroomerPwDeliver(null)}
+                      className="w-full py-3 border border-gray-300 rounded-lg text-gray-800 font-medium"
+                    >
+                      닫기
+                    </button>
                   </div>
                 </div>
               )}
