@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 
 /**
  * 관리자 인증 상태를 확인하고 인증되지 않은 경우 로그인 페이지로 리디렉션합니다.
- * /admin/login 페이지는 제외합니다.
+ * 긴급 수정: 로그인 문제 해결을 위해 단순화된 로직으로 변경
  */
 export default function AdminAuthCheck({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -19,27 +19,58 @@ export default function AdminAuthCheck({ children }: { children: React.ReactNode
       return;
     }
     
-    // 로그인 페이지로 한 번만 리디렉션
-    // localStorage에 리디렉션 상태를 저장하여 무한 루프 방지
+    // 리디렉션 상태 관리
     const redirectKey = "admin_redirecting";
-    const isRedirecting = localStorage.getItem(redirectKey);
+    const isRedirecting = sessionStorage.getItem(redirectKey);
     
-    if (!isRedirecting) {
-      localStorage.setItem(redirectKey, "true");
-      
-      // 약간의 지연 후 리디렉션 (상태 안정화를 위해)
-      setTimeout(() => {
-        router.push("/admin/login");
-      }, 100);
-      
-      // 리디렉션 상태 초기화 (5초 후)
-      setTimeout(() => {
-        localStorage.removeItem(redirectKey);
-      }, 5000);
-    } else {
+    if (isRedirecting) {
       // 이미 리디렉션 중이면 상태만 업데이트
       setIsChecking(false);
+      return;
     }
+    
+    // API를 통해 인증 상태 확인
+    const checkAuthStatus = async () => {
+      try {
+        // 리디렉션 상태 설정
+        sessionStorage.setItem(redirectKey, "true");
+        
+        const res = await fetch("/api/admin-auth/me", {
+          credentials: "include",
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache"
+          },
+        });
+        
+        // 리디렉션 상태 초기화
+        sessionStorage.removeItem(redirectKey);
+        
+        if (!res.ok) {
+          // API 오류 시 로그인 페이지로 리디렉션
+          router.replace("/admin/login");
+          return;
+        }
+        
+        const data = await res.json();
+        
+        if (!data.ok) {
+          // 인증되지 않은 경우 로그인 페이지로 리디렉션
+          router.replace("/admin/login");
+        } else {
+          // 인증된 경우 컨텐츠 표시
+          setIsChecking(false);
+        }
+      } catch (error) {
+        console.error("인증 상태 확인 중 오류 발생:", error);
+        // 오류 발생 시 로그인 페이지로 리디렉션
+        sessionStorage.removeItem(redirectKey);
+        router.replace("/admin/login");
+      }
+    };
+    
+    checkAuthStatus();
   }, [pathname, router]);
   
   // 인증 확인 중이면 로딩 표시
