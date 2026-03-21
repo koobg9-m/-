@@ -43,6 +43,14 @@ export default function AdminMenu() {
             >
               대량 이메일 인증 관리
             </Link>
+            <Link 
+              href="/admin/password" 
+              className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" 
+              role="menuitem"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              관리자 비밀번호 변경
+            </Link>
             <hr className="my-1" />
             <button 
               onClick={() => {
