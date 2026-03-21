@@ -11,9 +11,8 @@ import { usePathname } from "next/navigation";
 export default function AdminProductionGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  const disableProdAdmin =
-    process.env.NODE_ENV === "production" &&
-    (process.env.NEXT_PUBLIC_DISABLE_ADMIN === "1" || process.env.NEXT_PUBLIC_DISABLE_ADMIN === "true");
+  // 관리자 페이지 차단 기능 비활성화 (임시 수정)
+  const disableProdAdmin = false;
 
   const blocked = disableProdAdmin && !!pathname?.startsWith("/admin");
 

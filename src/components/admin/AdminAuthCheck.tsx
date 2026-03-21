@@ -19,6 +19,11 @@ export default function AdminAuthCheck({ children }: { children: React.ReactNode
       return;
     }
     
+    // 로그인 페이지로 항상 리디렉션 (임시 수정)
+    router.replace("/admin/login");
+    
+    // 원래 코드 주석 처리
+    /*
     // API를 통해 인증 상태 확인
     async function checkAuthStatus() {
       try {
@@ -47,6 +52,7 @@ export default function AdminAuthCheck({ children }: { children: React.ReactNode
     }
     
     checkAuthStatus();
+    */
   }, [pathname, router]);
   
   // 인증 확인 중이면 로딩 표시
