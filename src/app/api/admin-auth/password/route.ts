@@ -12,6 +12,12 @@ export const revalidate = 0;
 const ADMIN_PW_HASH_KEY = "mimi_admin_password_hash";
 const COOKIE_NAME = "mimi_admin_auth";
 
+// Supabase app_data 테이블 타입 정의
+interface AppData {
+  key: string;
+  value: string;
+}
+
 export async function POST(req: NextRequest) {
   try {
     // 인증 확인
@@ -50,7 +56,7 @@ export async function POST(req: NextRequest) {
         const { error } = await supabase
           .from("app_data")
           .upsert(
-            { key: ADMIN_PW_HASH_KEY, value: passwordHash },
+            { key: ADMIN_PW_HASH_KEY, value: passwordHash } as AppData,
             { onConflict: "key" }
           );
         
