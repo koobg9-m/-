@@ -35,7 +35,7 @@ export default function BatchEmailPage() {
             <ol className="list-decimal pl-5 space-y-2">
               <li>이메일 목록을 텍스트 영역에 입력하거나 CSV 파일을 업로드합니다.</li>
               <li>이메일은 줄바꿈, 쉼표, 또는 세미콜론으로 구분할 수 있습니다.</li>
-              <li>"인증 링크 일괄 발송" 버튼을 클릭하여 처리를 시작합니다.</li>
+              <li>&quot;인증 링크 일괄 발송&quot; 버튼을 클릭하여 처리를 시작합니다.</li>
               <li>처리 결과는 테이블에 표시되며, CSV 파일로 다운로드할 수 있습니다.</li>
             </ol>
 
