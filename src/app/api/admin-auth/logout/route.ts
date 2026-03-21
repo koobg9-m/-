@@ -13,10 +13,8 @@ export async function POST() {
   try {
     const res = NextResponse.json({ ok: true });
     
-    // 인증 쿠키 삭제
-    paths.forEach((path) => {
-      res.cookies.delete(COOKIE_NAME, { path });
-    });
+    // 인증 쿠키 삭제 (타입 오류 수정)
+    res.cookies.delete(COOKIE_NAME);
     
     // 캐시 방지 헤더 추가
     res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
