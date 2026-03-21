@@ -75,46 +75,26 @@ export default function LoginForm() {
       setStep("email_sent");
     } else {
       try {
-        // 안전한 리디렉션 URL 생성
-        let redirectTo;
-        try {
-          redirectTo = getAuthCallbackUrl();
-          // 유효한 URL인지 확인
-          if (redirectTo) {
-            new URL(redirectTo); // 유효하지 않으면 예외 발생
-          } else {
-            // 빈 문자열이면 기본값 설정
-            redirectTo = "https://mimisalon.vercel.app/auth/callback?next=%2F";
-          }
-        } catch (urlError) {
-          console.error("리디렉션 URL 오류:", urlError);
-          // 오류 발생 시 하드코딩된 기본값 사용
-          redirectTo = "https://mimisalon.vercel.app/auth/callback?next=%2F";
-        }
+        // 항상 프로덕션 URL 사용
+        const redirectTo = "https://mimisalon.vercel.app/auth/callback?next=%2F";
         
         // Supabase 클라이언트 생성 및 로그인 시도
-        try {
-          const { createClient } = await import("@/lib/supabase/client");
-          const supabaseClient = createClient();
-          
-          const { error: err } = await supabaseClient.auth.signInWithOtp({
-            email: email.trim(),
-            options: {
-              emailRedirectTo: redirectTo,
-              shouldCreateUser: true,
-            },
-          });
-          
-          if (err) throw err;
-          setStep("email_sent");
-        } catch (authError) {
-          console.error("Supabase 인증 오류:", authError);
-          const msg = authError instanceof Error ? authError.message : "발송 실패";
-          setError(formatAuthErrorEmail(msg));
-        }
-      } catch (e) {
-        console.error("이메일 로그인 처리 오류:", e);
-        setError("로그인 처리 중 오류가 발생했습니다. 다시 시도해 주세요.");
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
+        
+        const { error: err } = await supabase.auth.signInWithOtp({
+          email: email.trim(),
+          options: {
+            emailRedirectTo: redirectTo,
+            shouldCreateUser: true,
+          },
+        });
+        
+        if (err) throw err;
+        setStep("email_sent");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "발송 실패";
+        setError(formatAuthErrorEmail(msg));
       }
     }
     setLoading(false);
@@ -141,7 +121,9 @@ export default function LoginForm() {
     setError("");
     try {
       const { createClient } = await import("@/lib/supabase/client");
-      const redirectTo = getAuthCallbackUrl() || undefined;
+      // 항상 프로덕션 URL 사용
+      const redirectTo = "https://mimisalon.vercel.app/auth/callback?next=%2F";
+      
       const { error: err } = await createClient().auth.signInWithOAuth({
         provider: "kakao",
         options: { redirectTo },

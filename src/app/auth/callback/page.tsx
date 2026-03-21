@@ -47,13 +47,17 @@ function waitForAuthSession(supabase: SupabaseClient, maxMs = 25000): Promise<Se
     let polls = 0;
     pollIv = setInterval(async () => {
       polls += 1;
-      const {
-        data: { session },
-        error,
-      } = await supabase.auth.getSession();
-      if (!error && session) {
-        finish(session);
-        return;
+      try {
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
+        if (!error && session) {
+          finish(session);
+          return;
+        }
+      } catch (e) {
+        console.error("세션 폴링 오류:", e);
       }
       if (polls > 150 && pollIv) {
         clearInterval(pollIv);
@@ -77,15 +81,8 @@ function AuthCallbackContent() {
     const run = async () => {
       try {
         // Supabase 클라이언트 생성
-        let supabase;
-        try {
-          const { createClient } = await import("@/lib/supabase/client");
-          supabase = createClient();
-        } catch (clientError) {
-          console.error("Supabase 클라이언트 생성 오류:", clientError);
-          setError("인증 서비스 초기화에 실패했습니다. 다시 시도해 주세요.");
-          return;
-        }
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
         
         // 리디렉션 경로 안전하게 가져오기
         let next = "/";
@@ -94,37 +91,33 @@ function AuthCallbackContent() {
           next = nextRaw && typeof nextRaw === 'string' && nextRaw.startsWith("/") ? nextRaw : "/";
         } catch (paramError) {
           console.error("URL 파라미터 파싱 오류:", paramError);
-          // 기본값 "/"를 사용
         }
 
         // Supabase 오류 리다이렉트 (?error=...&error_description=...)
         try {
           const errParam = searchParams.get("error");
-          const errDesc = searchParams.get("error_description");
           if (errParam) {
+            const errDesc = searchParams.get("error_description");
             const decoded = errDesc ? decodeURIComponent(errDesc.replace(/\+/g, " ")) : errParam;
             setError(decoded || "인증에 실패했습니다.");
             return;
           }
         } catch (errorParamError) {
           console.error("오류 파라미터 파싱 오류:", errorParamError);
-          // 계속 진행
         }
 
-      // PKCE code
-      try {
-        const code = searchParams.get("code");
-        if (code) {
-          try {
-            const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-            if (!exchangeError) {
-              router.replace(next);
-              return;
-            }
-            
-            const msg = exchangeError.message ?? "";
-            if (msg.includes("code verifier") || msg.toLowerCase().includes("pkce")) {
-              // 다른 기기에서 연 PKCE 실패 → implicit 해시만 온 경우 등, 세션 대기 재시도
+        // PKCE code
+        try {
+          const code = searchParams.get("code");
+          if (code) {
+            try {
+              const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+              if (!exchangeError) {
+                router.replace(next);
+                return;
+              }
+              
+              // 코드 교환 실패 시 세션 대기 시도
               try {
                 const session = await waitForAuthSession(supabase);
                 if (session) {
@@ -135,82 +128,94 @@ function AuthCallbackContent() {
                 console.error("세션 대기 오류:", sessionError);
               }
               
-              setError(
-                "이 링크는 로그인을 요청한 브라우저와 달라 완료할 수 없습니다. 같은 기기에서 메일을 열거나, 다시 「로그인 링크 받기」를 해 주세요.",
-              );
+              setError("인증에 실패했습니다. 다시 로그인 링크를 요청해 주세요.");
               return;
-            }
-            
-            try {
-              const sessionRetry = await waitForAuthSession(supabase, 8000);
-              if (sessionRetry) {
+            } catch (codeError) {
+              console.error("코드 교환 오류:", codeError);
+              
+              // 코드 교환 실패 시에도 세션 확인 시도
+              const session = await waitForAuthSession(supabase, 8000);
+              if (session) {
                 router.replace(next);
                 return;
               }
-            } catch (retryError) {
-              console.error("세션 재시도 오류:", retryError);
+              
+              setError("인증 코드 처리 중 오류가 발생했습니다.");
+              return;
             }
-            
-            setError("인증에 실패했습니다. 링크가 만료되었을 수 있습니다.");
-            return;
-          } catch (codeError) {
-            console.error("코드 교환 오류:", codeError);
-            setError("인증 코드 처리 중 오류가 발생했습니다.");
-            return;
           }
+        } catch (codeParamError) {
+          console.error("코드 파라미터 파싱 오류:", codeParamError);
         }
-      } catch (codeParamError) {
-        console.error("코드 파라미터 파싱 오류:", codeParamError);
-        // 계속 진행
-      }
 
-      // token_hash + type
-      try {
-        const token_hash = searchParams.get("token_hash");
-        const typeRaw = searchParams.get("type");
-        
-        if (token_hash && isOtpType(typeRaw)) {
-          try {
-            const { error: otpError } = await supabase.auth.verifyOtp({ token_hash, type: typeRaw });
-            if (!otpError) {
+        // token_hash + type
+        try {
+          const token_hash = searchParams.get("token_hash");
+          const typeRaw = searchParams.get("type");
+          
+          if (token_hash && isOtpType(typeRaw)) {
+            try {
+              const { error: otpError } = await supabase.auth.verifyOtp({ token_hash, type: typeRaw });
+              if (!otpError) {
+                router.replace(next);
+                return;
+              }
+              setError(otpError.message || "인증에 실패했습니다.");
+              return;
+            } catch (otpError) {
+              console.error("OTP 검증 오류:", otpError);
+              
+              // OTP 검증 실패 시에도 세션 확인 시도
+              const session = await waitForAuthSession(supabase, 8000);
+              if (session) {
+                router.replace(next);
+                return;
+              }
+              
+              setError("인증 코드 검증 중 오류가 발생했습니다.");
+              return;
+            }
+          }
+        } catch (tokenError) {
+          console.error("토큰 파라미터 파싱 오류:", tokenError);
+        }
+
+        // 해시 프래그먼트 확인 (implicit 플로우)
+        try {
+          if (typeof window !== "undefined" && window.location.hash) {
+            const session = await waitForAuthSession(supabase);
+            if (session) {
               router.replace(next);
               return;
             }
-            setError(otpError.message || "인증에 실패했습니다.");
-            return;
-          } catch (otpError) {
-            console.error("OTP 검증 오류:", otpError);
-            setError("인증 코드 검증 중 오류가 발생했습니다.");
+          }
+        } catch (hashError) {
+          console.error("해시 프래그먼트 처리 오류:", hashError);
+        }
+
+        // 최종 세션 확인
+        try {
+          const session = await waitForAuthSession(supabase);
+          if (session) {
+            router.replace(next);
             return;
           }
+        } catch (finalSessionError) {
+          console.error("최종 세션 대기 오류:", finalSessionError);
         }
-      } catch (tokenError) {
-        console.error("토큰 파라미터 파싱 오류:", tokenError);
-        // 계속 진행
+
+        setError(
+          "로그인을 완료하지 못했습니다. 링크가 만료되었거나, 메일 앱이 주소를 잘못 열었을 수 있습니다. 다시 로그인 링크를 받거나, 다른 브라우저에서 메일 링크를 열어 보세요."
+        );
+      } catch (globalError) {
+        console.error("인증 콜백 전역 오류:", globalError);
+        setError("로그인 처리 중 오류가 발생했습니다. 다시 시도해 주세요.");
       }
+    };
 
-      try {
-        const session = await waitForAuthSession(supabase);
-        if (session) {
-          router.replace(next);
-          return;
-        }
-      } catch (finalSessionError) {
-        console.error("최종 세션 대기 오류:", finalSessionError);
-      }
-
-      setError(
-        "로그인을 완료하지 못했습니다. 링크가 만료되었거나, 메일 앱이 주소를 잘못 열었을 수 있습니다. 다시 로그인 링크를 받거나, 다른 브라우저에서 메일 링크를 열어 보세요.",
-      );
-    } catch (globalError) {
-      console.error("인증 콜백 전역 오류:", globalError);
-      setError("로그인 처리 중 오류가 발생했습니다. 다시 시도해 주세요.");
-    }
-  };
-
-  void run();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- 콜백 진입 1회만 처리
-}, []);
+    void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 콜백 진입 1회만 처리
+  }, []);
 
   if (error) {
     return (

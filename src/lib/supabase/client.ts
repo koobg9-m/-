@@ -1,60 +1,76 @@
-import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-let browserClient: SupabaseClient | null = null;
+let supabaseInstance: SupabaseClient | null = null;
 
-/**
- * 브라우저 전용 Supabase 클라이언트 (싱글톤).
- *
- * **이메일 매직 링크:** `@supabase/ssr`의 `createBrowserClient`는 `flowType: "pkce"`를
- * 항상 덮어씁니다. PKCE는 `code_verifier`가 **로그인 요청한 브라우저**에만 있어,
- * 메일을 **다른 기기/앱**에서 열면 `exchangeCodeForSession`이 실패합니다.
- * `implicit` 플로우는 URL 해시의 토큰으로 세션을 만들어 교차 기기에서도 동작합니다.
- *
- * 카카오 OAuth도 동일 클라이언트로 처리합니다 (implicit).
- */
-export function createClient(): SupabaseClient {
+export function isSupabaseConfigured(): boolean {
   try {
-    if (typeof window === "undefined") {
-      throw new Error("Supabase client can only be used in the browser");
-    }
-    
-    // 환경 변수 안전하게 가져오기
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-
-    // 환경 변수 유효성 검사
-    if (!supabaseUrl || !supabaseAnonKey || !supabaseUrl.startsWith("http")) {
-      throw new Error("Missing or invalid Supabase environment variables");
-    }
-
-    // 싱글톤 클라이언트 생성 또는 재사용
-    if (!browserClient) {
-      try {
-        browserClient = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
-          auth: {
-            flowType: "implicit", // 교차 기기 인증을 위한 implicit 플로우
-            autoRefreshToken: true,
-            persistSession: true,
-            detectSessionInUrl: true,
-          },
-        });
-      } catch (initError) {
-        console.error("Supabase 클라이언트 초기화 오류:", initError);
-        throw new Error("Supabase 클라이언트를 초기화할 수 없습니다.");
-      }
-    }
-
-    return browserClient;
-  } catch (error) {
-    console.error("Supabase 클라이언트 생성 오류:", error);
-    throw error;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    return !!(
+      supabaseUrl &&
+      supabaseUrl.startsWith("http") &&
+      supabaseAnonKey &&
+      supabaseAnonKey.length > 10
+    );
+  } catch (e) {
+    console.error("Supabase 설정 확인 오류:", e);
+    return false;
   }
 }
 
-/** Supabase 사용 가능 여부 */
-export function isSupabaseConfigured() {
-  if (process.env.NEXT_PUBLIC_SKIP_SUPABASE === "1") return false;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-  return !!url && !!key && url.startsWith("http");
+export function createClient(): SupabaseClient {
+  try {
+    if (supabaseInstance) return supabaseInstance;
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error("Supabase 환경 변수가 설정되지 않았습니다");
+    }
+
+    if (!supabaseUrl.startsWith("http")) {
+      throw new Error("Supabase URL이 올바르지 않습니다");
+    }
+
+    supabaseInstance = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+      },
+    });
+
+    return supabaseInstance;
+  } catch (error) {
+    console.error("Supabase 클라이언트 생성 오류:", error);
+    throw new Error("Supabase 클라이언트를 생성할 수 없습니다");
+  }
+}
+
+export function checkSupabaseConfig(): {
+  isConfigured: boolean;
+  url?: string;
+  hasAnonKey: boolean;
+} {
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    
+    const isConfigured = !!(
+      supabaseUrl &&
+      supabaseUrl.startsWith("http") &&
+      supabaseAnonKey &&
+      supabaseAnonKey.length > 10
+    );
+    
+    return {
+      isConfigured,
+      url: supabaseUrl || undefined,
+      hasAnonKey: !!supabaseAnonKey && supabaseAnonKey.length > 10,
+    };
+  } catch (e) {
+    console.error("Supabase 설정 확인 오류:", e);
+    return { isConfigured: false, hasAnonKey: false };
+  }
 }
