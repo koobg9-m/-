@@ -13,28 +13,42 @@ let browserClient: SupabaseClient | null = null;
  * 카카오 OAuth도 동일 클라이언트로 처리합니다 (implicit).
  */
 export function createClient(): SupabaseClient {
-  if (typeof window === "undefined") {
-    throw new Error("Supabase client can only be used in the browser");
-  }
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+  try {
+    if (typeof window === "undefined") {
+      throw new Error("Supabase client can only be used in the browser");
+    }
+    
+    // 환경 변수 안전하게 가져오기
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
-  if (!supabaseUrl || !supabaseAnonKey || !supabaseUrl.startsWith("http")) {
-    throw new Error("Missing or invalid Supabase environment variables");
-  }
+    // 환경 변수 유효성 검사
+    if (!supabaseUrl || !supabaseAnonKey || !supabaseUrl.startsWith("http")) {
+      throw new Error("Missing or invalid Supabase environment variables");
+    }
 
-  if (!browserClient) {
-    browserClient = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        flowType: "implicit",
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-      },
-    });
-  }
+    // 싱글톤 클라이언트 생성 또는 재사용
+    if (!browserClient) {
+      try {
+        browserClient = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
+          auth: {
+            flowType: "implicit", // 교차 기기 인증을 위한 implicit 플로우
+            autoRefreshToken: true,
+            persistSession: true,
+            detectSessionInUrl: true,
+          },
+        });
+      } catch (initError) {
+        console.error("Supabase 클라이언트 초기화 오류:", initError);
+        throw new Error("Supabase 클라이언트를 초기화할 수 없습니다.");
+      }
+    }
 
-  return browserClient;
+    return browserClient;
+  } catch (error) {
+    console.error("Supabase 클라이언트 생성 오류:", error);
+    throw error;
+  }
 }
 
 /** Supabase 사용 가능 여부 */

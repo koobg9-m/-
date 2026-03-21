@@ -16,23 +16,63 @@
 const DEFAULT_PRODUCTION_ORIGIN = "https://mimisalon.vercel.app";
 
 export function getAuthCallbackUrl(): string {
-  if (typeof window === "undefined") return "";
-  const redirect = new URLSearchParams(window.location.search).get("redirect") || "/";
-  let origin = window.location.origin;
-  const envSite = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  const isLocal =
-    window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-  const forceLocalCallback = process.env.NEXT_PUBLIC_USE_LOCAL_AUTH_CALLBACK === "1";
-
-  if (envSite) {
+  // 서버 사이드 렌더링 시 기본값 반환
+  if (typeof window === "undefined") return `${DEFAULT_PRODUCTION_ORIGIN}/auth/callback?next=%2F`;
+  
+  try {
+    // 리디렉션 경로 안전하게 가져오기
+    let redirect = "/";
     try {
-      origin = new URL(envSite).origin;
-    } catch {
-      /* invalid NEXT_PUBLIC_SITE_URL — keep window.location.origin */
+      const params = new URLSearchParams(window.location.search);
+      const redirectParam = params.get("redirect");
+      if (redirectParam && typeof redirectParam === 'string') {
+        // 경로가 /로 시작하는지 확인
+        redirect = redirectParam.startsWith("/") ? redirectParam : `/${redirectParam}`;
+      }
+    } catch (e) {
+      console.error("리디렉션 파라미터 파싱 오류:", e);
     }
-  } else if (isLocal && !forceLocalCallback) {
-    origin = DEFAULT_PRODUCTION_ORIGIN;
+    
+    // 오리진 결정
+    let origin = DEFAULT_PRODUCTION_ORIGIN; // 기본값으로 프로덕션 URL 사용
+    
+    // 환경 변수에서 사이트 URL 가져오기 시도
+    const envSite = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+    if (envSite) {
+      try {
+        const url = new URL(envSite);
+        if (url.origin) {
+          origin = url.origin;
+        }
+      } catch (e) {
+        console.error("NEXT_PUBLIC_SITE_URL 파싱 오류:", e);
+      }
+    } 
+    // 환경 변수가 없으면 현재 위치 확인
+    else {
+      try {
+        const isLocal = window.location.hostname === "localhost" || 
+                       window.location.hostname === "127.0.0.1";
+        const forceLocalCallback = process.env.NEXT_PUBLIC_USE_LOCAL_AUTH_CALLBACK === "1";
+        
+        // 로컬이고 강제 로컬 콜백이 아니면 프로덕션 URL 사용 (이미 기본값으로 설정됨)
+        // 그 외에는 현재 오리진 사용
+        if (!isLocal || forceLocalCallback) {
+          if (window.location.origin) {
+            origin = window.location.origin;
+          }
+        }
+      } catch (e) {
+        console.error("window.location 접근 오류:", e);
+        // 기본값인 DEFAULT_PRODUCTION_ORIGIN 유지
+      }
+    }
+    
+    // 최종 URL 생성
+    return `${origin}/auth/callback?next=${encodeURIComponent(redirect)}`;
+  } catch (e) {
+    // 어떤 오류가 발생해도 기본 URL 반환
+    console.error("콜백 URL 생성 오류:", e);
+    return `${DEFAULT_PRODUCTION_ORIGIN}/auth/callback?next=%2F`;
   }
-
-  return `${origin}/auth/callback?next=${encodeURIComponent(redirect)}`;
 }
