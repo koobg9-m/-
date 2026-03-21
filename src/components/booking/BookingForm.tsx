@@ -307,10 +307,10 @@ export default function BookingForm() {
   const steps: Step[] = ["profile", "region", "datetime", "service", "match", "pet", "terms", "confirm", "payment"];
 
   return (
-    <div>
-      <Link href="/" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-mimi-orange transition-colors mb-6">← 홈으로</Link>
-      <div className="mb-8">
-        <div className="flex gap-1 mb-4 overflow-x-auto pb-2">
+    <div className="w-full max-w-full min-w-0">
+      <Link href="/" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-mimi-orange transition-colors mb-4 sm:mb-6">← 홈으로</Link>
+      <div className="mb-6 sm:mb-8">
+        <div className="flex gap-1 mb-3 sm:mb-4 overflow-x-auto pb-2 -mx-1 px-1">
           {steps.map((s, i) => (
             <div
               key={s}
@@ -318,7 +318,7 @@ export default function BookingForm() {
             />
           ))}
         </div>
-        <h1 className="section-title">미용 예약</h1>
+        <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-mimi-charcoal tracking-tight">미용 예약</h1>
       </div>
 
       {step === "region" && (
@@ -350,8 +350,8 @@ export default function BookingForm() {
       )}
 
       {step === "profile" && (
-        <div className="space-y-4">
-          <div className="p-4 bg-amber-50 rounded-xl border border-amber-200/60 flex items-start gap-3">
+        <div className="space-y-4 w-full max-w-full min-w-0">
+          <div className="p-3 sm:p-4 bg-amber-50 rounded-xl border border-amber-200/60 flex items-start gap-3">
             <span className="text-xl shrink-0">💡</span>
             <div>
               <p className="text-sm text-amber-800 font-medium">잠깐! 예약전 안내를 확인해 주세요.</p>

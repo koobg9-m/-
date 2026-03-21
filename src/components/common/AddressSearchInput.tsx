@@ -52,18 +52,19 @@ export default function AddressSearchInput({ value, onChange, placeholder = "주
   }, [onChange]);
 
   return (
-    <div className={`flex gap-2 ${className}`}>
+    <div className={`flex flex-col sm:flex-row gap-2 min-w-0 ${className}`}>
       <input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`flex-1 px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none ${inputClassName}`}
+        className={`w-full min-w-0 flex-1 px-3 sm:px-4 py-3 min-h-[44px] text-base rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none ${inputClassName}`}
+        autoComplete="street-address"
       />
       <button
         type="button"
         onClick={openPostcode}
-        className="px-5 py-3 bg-mimi-orange text-white rounded-xl font-medium hover:bg-mimi-orange/90 whitespace-nowrap"
+        className="w-full sm:w-auto shrink-0 px-4 sm:px-5 py-3 min-h-[44px] text-base bg-mimi-orange text-white rounded-xl font-medium hover:bg-mimi-orange/90 whitespace-nowrap"
       >
         주소 검색
       </button>

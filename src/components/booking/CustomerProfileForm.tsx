@@ -84,34 +84,37 @@ export default function CustomerProfileForm({ onComplete, initialData, submitLab
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <p className="text-gray-600">고객 정보와 반려동물을 등록해 주세요 (수정 가능)</p>
+    <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6 w-full max-w-full min-w-0">
+      <p className="text-gray-600 text-sm sm:text-base leading-relaxed">고객 정보와 반려동물을 등록해 주세요 (수정 가능)</p>
 
-      <div className="space-y-4">
-        <h3 className="font-bold text-gray-800">고객 정보</h3>
-        <div>
+      <div className="space-y-3 sm:space-y-4">
+        <h3 className="font-bold text-gray-800 text-base sm:text-lg">고객 정보</h3>
+        <div className="min-w-0">
           <label className="block text-sm font-medium text-gray-700 mb-1">이름 *</label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="홍길동"
-            className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none"
+            className="w-full min-w-0 px-3 sm:px-4 py-3 min-h-[44px] text-base rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none"
             required
+            autoComplete="name"
           />
         </div>
-        <div>
+        <div className="min-w-0">
           <label className="block text-sm font-medium text-gray-700 mb-1">연락처 *</label>
           <input
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="010-1234-5678"
-            className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none"
+            className="w-full min-w-0 px-3 sm:px-4 py-3 min-h-[44px] text-base rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none"
             required
+            autoComplete="tel"
+            inputMode="tel"
           />
         </div>
-        <div>
+        <div className="min-w-0">
           <label className="block text-sm font-medium text-gray-700 mb-1">주소 *</label>
           <AddressSearchInput value={address} onChange={setAddress} placeholder="주소 검색" />
           <input
@@ -119,35 +122,40 @@ export default function CustomerProfileForm({ onComplete, initialData, submitLab
             value={detailAddress}
             onChange={(e) => setDetailAddress(e.target.value)}
             placeholder="상세 주소 (동/호수)"
-            className="w-full mt-2 px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none"
+            className="w-full min-w-0 mt-2 px-3 sm:px-4 py-3 min-h-[44px] text-base rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none"
+            autoComplete="address-line2"
           />
         </div>
-        <div>
+        <div className="min-w-0">
           <label className="block text-sm font-medium text-gray-700 mb-1">이메일</label>
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="example@email.com"
-            className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none"
+            className="w-full min-w-0 px-3 sm:px-4 py-3 min-h-[44px] text-base rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none"
+            autoComplete="email"
+            inputMode="email"
           />
         </div>
       </div>
 
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <h3 className="font-bold text-gray-800">반려동물 (강아지 여러 마리 등록 가능)</h3>
+      <div className="space-y-3 sm:space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
+          <h3 className="font-bold text-gray-800 text-base sm:text-lg leading-snug pr-1">
+            반려동물 <span className="font-normal text-gray-600 text-sm">(여러 마리 등록 가능)</span>
+          </h3>
           <button
             type="button"
             onClick={() => { setEditingPet(null); setShowPetForm(true); }}
-            className="text-sm py-2 px-4 bg-mimi-orange/20 text-mimi-orange rounded-lg hover:bg-mimi-orange/30"
+            className="text-sm py-2.5 px-4 bg-mimi-orange/20 text-mimi-orange rounded-lg hover:bg-mimi-orange/30 w-full sm:w-auto text-center shrink-0"
           >
             + 반려동물 추가
           </button>
         </div>
 
         {pets.map((pet) => (
-          <div key={pet.id} className="p-4 bg-gray-50 rounded-xl">
+          <div key={pet.id} className="p-3 sm:p-4 bg-gray-50 rounded-xl min-w-0">
             {editingPet?.id === pet.id ? (
               <PetForm
                 key={pet.id}
@@ -156,18 +164,18 @@ export default function CustomerProfileForm({ onComplete, initialData, submitLab
                 onCancel={() => setEditingPet(null)}
               />
             ) : (
-              <div className="flex items-start gap-4">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-3 sm:gap-4">
                 {pet.photoUrl ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={pet.photoUrl} alt={pet.name} className="w-16 h-16 rounded-full object-cover" />
+                  <img src={pet.photoUrl} alt={pet.name} className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover shrink-0 mx-auto sm:mx-0" />
                 ) : (
-                  <div className="w-16 h-16 rounded-full bg-mimi-orange/20 flex items-center justify-center text-2xl">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-mimi-orange/20 flex items-center justify-center text-2xl shrink-0 mx-auto sm:mx-0">
                     🐕
                   </div>
                 )}
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold">{pet.name}</p>
-                  <p className="text-sm text-gray-600">
+                <div className="flex-1 min-w-0 text-center sm:text-left">
+                  <p className="font-bold break-words">{pet.name}</p>
+                  <p className="text-sm text-gray-600 break-words">
                     {pet.species}
                     {pet.breed && ` · ${pet.breed}`}
                     {(pet.breedType || pet.weightTier || pet.weightKg) && ` · ${pet.breedType ?? ""} ${pet.weightTier ?? (pet.weightKg ? `${pet.weightKg}kg` : "")}`.trim()}
@@ -175,11 +183,11 @@ export default function CustomerProfileForm({ onComplete, initialData, submitLab
                   </p>
                   {pet.healthConditions && <p className="text-xs text-amber-700">지병: {pet.healthConditions}</p>}
                   {pet.isAggressive && <p className="text-xs text-red-600">⚠️ 사나움 주의</p>}
-                  {pet.notes && <p className="text-xs text-gray-500">{pet.notes}</p>}
+                  {pet.notes && <p className="text-xs text-gray-500 break-words">{pet.notes}</p>}
                 </div>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => setEditingPet(pet)} className="text-sm text-mimi-orange hover:underline">수정</button>
-                  <button type="button" onClick={() => removePet(pet.id)} className="text-sm text-red-500 hover:underline">삭제</button>
+                <div className="flex gap-3 justify-center sm:justify-end sm:flex-col sm:gap-1 shrink-0 pt-1 sm:pt-0 border-t border-gray-200/80 sm:border-0 mt-1 sm:mt-0">
+                  <button type="button" onClick={() => setEditingPet(pet)} className="text-sm text-mimi-orange hover:underline py-1">수정</button>
+                  <button type="button" onClick={() => removePet(pet.id)} className="text-sm text-red-500 hover:underline py-1">삭제</button>
                 </div>
               </div>
             )}
@@ -199,7 +207,7 @@ export default function CustomerProfileForm({ onComplete, initialData, submitLab
       <button
         type="submit"
         disabled={!name.trim() || !phone.trim() || !address.trim() || pets.length === 0}
-        className="w-full py-3 bg-mimi-orange text-white rounded-xl font-bold disabled:opacity-50"
+        className="w-full py-3.5 min-h-[48px] text-base bg-mimi-orange text-white rounded-xl font-bold disabled:opacity-50"
       >
         {submitLabel}
       </button>
@@ -311,37 +319,37 @@ function PetForm({ pet, onSave, onCancel }: PetFormProps) {
   };
 
   return (
-    <div className="space-y-3 p-4 bg-white rounded-xl border-2 border-mimi-orange/30">
-      <h4 className="font-medium text-gray-800">{pet ? "반려동물 수정" : "반려동물 추가"}</h4>
-      <div className="flex gap-4">
-        <div>
+    <div className="space-y-3 p-3 sm:p-4 bg-white rounded-xl border-2 border-mimi-orange/30 w-full max-w-full min-w-0">
+      <h4 className="font-medium text-gray-800 text-base">{pet ? "반려동물 수정" : "반려동물 추가"}</h4>
+      <div className="flex flex-col md:flex-row gap-4 min-w-0">
+        <div className="shrink-0 flex flex-col items-center md:items-start">
           <label className="block text-xs text-gray-600 mb-1">사진</label>
-          <input type="file" accept="image/*" onChange={handlePhotoChange} className="text-sm" />
+          <input type="file" accept="image/*" onChange={handlePhotoChange} className="text-sm max-w-full" />
           {photoUrl && (
             /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={photoUrl} alt="" className="mt-1 w-14 h-14 rounded-full object-cover" />
+            <img src={photoUrl} alt="" className="mt-1 w-16 h-16 rounded-full object-cover" />
           )}
         </div>
-        <div className="flex-1 space-y-2">
-          <div>
+        <div className="flex-1 min-w-0 space-y-2">
+          <div className="min-w-0">
             <label className="block text-xs text-gray-600">이름 *</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="이름"
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+              className="w-full min-w-0 px-3 py-2.5 min-h-[44px] rounded-lg border border-gray-200 text-base"
               required
             />
           </div>
-          <div className="flex gap-2 flex-wrap">
-            <div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+            <div className="min-w-0">
               <label className="block text-xs text-gray-600">종류</label>
-              <span className="inline-block px-3 py-2 rounded-lg border border-gray-200 text-sm bg-gray-50">강아지</span>
+              <span className="inline-block w-full sm:w-auto text-center px-3 py-2.5 rounded-lg border border-gray-200 text-sm bg-gray-50">강아지</span>
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs text-gray-600">품종</label>
-              <select value={breed} onChange={(e) => setBreed(e.target.value)} className="px-3 py-2 rounded-lg border border-gray-200 text-sm">
+              <select value={breed} onChange={(e) => setBreed(e.target.value)} className="w-full min-w-0 max-w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-gray-200 text-base">
                 <option value="">선택</option>
                 {breedOptions.map((b) => (
                   <option key={b} value={b}>{b}</option>
@@ -349,26 +357,26 @@ function PetForm({ pet, onSave, onCancel }: PetFormProps) {
               </select>
             </div>
             {breed === "기타" && (
-              <div>
+              <div className="min-w-0 sm:col-span-2">
                 <label className="block text-xs text-gray-600">품종 직접입력</label>
-                <input type="text" value={breedCustom} onChange={(e) => setBreedCustom(e.target.value)} placeholder="품종 입력" className="px-3 py-2 rounded-lg border border-gray-200 text-sm w-28" />
+                <input type="text" value={breedCustom} onChange={(e) => setBreedCustom(e.target.value)} placeholder="품종 입력" className="w-full min-w-0 px-3 py-2.5 min-h-[44px] rounded-lg border border-gray-200 text-base" />
               </div>
             )}
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs text-gray-600">견종 (요금표)</label>
-              <select value={breedType} onChange={(e) => { const v = e.target.value as BreedType; setBreedType(v); if (v === "소형견" && ["11kg미만", "13kg미만"].includes(weightTier)) setWeightTier("9kg미만"); }} className="px-3 py-2 rounded-lg border border-gray-200 text-sm">
+              <select value={breedType} onChange={(e) => { const v = e.target.value as BreedType; setBreedType(v); if (v === "소형견" && ["11kg미만", "13kg미만"].includes(weightTier)) setWeightTier("9kg미만"); }} className="w-full min-w-0 max-w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-gray-200 text-base">
                 {BREED_TYPES.map((b) => (
                   <option key={b.value} value={b.value}>{b.label}</option>
                 ))}
               </select>
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs text-gray-600">체중(kg)</label>
-              <input type="number" step="0.1" min="0" max="20" value={weightKg} onChange={(e) => { const v = e.target.value; setWeightKg(v); if (v) setWeightTier(weightToTier(parseFloat(v), breedType)); }} placeholder="예: 4.2" className="px-3 py-2 rounded-lg border border-gray-200 text-sm w-20" />
+              <input type="number" step="0.1" min="0" max="20" value={weightKg} onChange={(e) => { const v = e.target.value; setWeightKg(v); if (v) setWeightTier(weightToTier(parseFloat(v), breedType)); }} placeholder="예: 4.2" className="w-full min-w-0 px-3 py-2.5 min-h-[44px] rounded-lg border border-gray-200 text-base" inputMode="decimal" />
             </div>
-            <div>
+            <div className="min-w-0 sm:col-span-2">
               <label className="block text-xs text-gray-600">체중 구간 (요금표)</label>
-              <select value={weightTier} onChange={(e) => { setWeightTier(e.target.value as WeightTier); setWeightKg(""); }} className="px-3 py-2 rounded-lg border border-gray-200 text-sm">
+              <select value={weightTier} onChange={(e) => { setWeightTier(e.target.value as WeightTier); setWeightKg(""); }} className="w-full min-w-0 max-w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-gray-200 text-base">
                 {weightTierOptions.map((t) => (
                   <option key={t} value={t}>{t}</option>
                 ))}
@@ -376,9 +384,9 @@ function PetForm({ pet, onSave, onCancel }: PetFormProps) {
               <p className="text-xs text-gray-500 mt-0.5">체중 입력 시 자동 적용 · 요금 산정 기준</p>
             </div>
           </div>
-          <div>
+          <div className="min-w-0">
             <label className="block text-xs text-gray-600">선호 서비스</label>
-            <select value={preferredServiceId} onChange={(e) => setPreferredServiceId(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm mt-1">
+            <select value={preferredServiceId} onChange={(e) => setPreferredServiceId(e.target.value)} className="w-full min-w-0 px-3 py-2.5 min-h-[44px] rounded-lg border border-gray-200 text-base mt-1">
               <option value="">선택 (해당 서비스로 예약 시 자동 이동)</option>
               {SERVICE_DEFS.filter((s) => (s.forBreed as readonly BreedType[]).includes(breedType)).map((s) => {
                 const price = getServicePrice(s.id, breedType, weightTier);
@@ -391,63 +399,63 @@ function PetForm({ pet, onSave, onCancel }: PetFormProps) {
               <p className="text-xs text-mimi-orange mt-1">예상 요금: {getServicePrice(preferredServiceId, breedType, weightTier).toLocaleString()}원 (견종·체중 기준)</p>
             )}
           </div>
-          <div className="flex gap-2">
-            <div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="min-w-0">
               <label className="block text-xs text-gray-600">출생년도</label>
-              <select value={birthYear} onChange={(e) => setBirthYear(Number(e.target.value))} className="px-3 py-2 rounded-lg border border-gray-200 text-sm">
+              <select value={birthYear} onChange={(e) => setBirthYear(Number(e.target.value))} className="w-full min-w-0 px-2 sm:px-3 py-2.5 min-h-[44px] rounded-lg border border-gray-200 text-base">
                 {years.map((y) => (
                   <option key={y} value={y}>{y}년</option>
                 ))}
               </select>
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs text-gray-600">출생월</label>
-              <select value={birthMonth} onChange={(e) => setBirthMonth(Number(e.target.value))} className="px-3 py-2 rounded-lg border border-gray-200 text-sm">
+              <select value={birthMonth} onChange={(e) => setBirthMonth(Number(e.target.value))} className="w-full min-w-0 px-2 sm:px-3 py-2.5 min-h-[44px] rounded-lg border border-gray-200 text-base">
                 {months.map((m) => (
                   <option key={m} value={m}>{m}월</option>
                 ))}
               </select>
             </div>
           </div>
-          <div>
+          <div className="min-w-0">
             <label className="block text-xs text-gray-600">지병 여부</label>
             <input
               type="text"
               value={healthConditions}
               onChange={(e) => setHealthConditions(e.target.value)}
               placeholder="없음 또는 기재"
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+              className="w-full min-w-0 px-3 py-2.5 min-h-[44px] rounded-lg border border-gray-200 text-base"
             />
           </div>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={isAggressive} onChange={(e) => setIsAggressive(e.target.checked)} />
+          <label className="flex items-center gap-2 text-base min-h-[44px]">
+            <input type="checkbox" checked={isAggressive} onChange={(e) => setIsAggressive(e.target.checked)} className="h-5 w-5 shrink-0" />
             <span>사나움 주의</span>
           </label>
-          <div>
+          <div className="min-w-0">
             <label className="block text-xs text-gray-600">서비스별 추가요청</label>
             <input
               type="text"
               value={serviceNotes}
               onChange={(e) => setServiceNotes(e.target.value)}
               placeholder="예: 털 많이 잘라주세요, 특정 스타일 원함"
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+              className="w-full min-w-0 px-3 py-2.5 min-h-[44px] rounded-lg border border-gray-200 text-base"
             />
           </div>
-          <div>
+          <div className="min-w-0">
             <label className="block text-xs text-gray-600">기타 특이사항</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="알레르기, 약 복용 중 등"
               rows={2}
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm resize-none"
+              className="w-full min-w-0 px-3 py-2.5 rounded-lg border border-gray-200 text-base resize-none"
             />
           </div>
         </div>
       </div>
-      <div className="flex gap-2">
-        <button type="button" onClick={handleSave} className="px-4 py-2 bg-mimi-orange text-white rounded-lg text-sm">저장</button>
-        <button type="button" onClick={onCancel} className="px-4 py-2 text-gray-600 rounded-lg text-sm">취소</button>
+      <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-1">
+        <button type="button" onClick={onCancel} className="w-full sm:w-auto px-4 py-3 min-h-[44px] text-gray-600 rounded-lg text-base border border-gray-200">취소</button>
+        <button type="button" onClick={handleSave} className="w-full sm:w-auto px-4 py-3 min-h-[44px] bg-mimi-orange text-white rounded-lg text-base font-medium">저장</button>
       </div>
     </div>
   );
