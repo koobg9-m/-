@@ -20,33 +20,11 @@ export default function AdminAuthCheck({ children }: { children: React.ReactNode
       return;
     }
     
-    const checkAuth = async () => {
-      try {
-        // 서버에 인증 상태 확인 요청
-        const res = await fetch("/api/admin-auth/me", { 
-          credentials: "include",
-          cache: "no-store",
-          headers: { "Cache-Control": "no-cache" }
-        });
-        const data = await res.json();
-        
-        if (!data.ok) {
-          // 인증되지 않은 경우 쿠키 삭제 후 로그인 페이지로 리디렉션
-          clearAdminAuthCookie();
-          sessionStorage.removeItem("mimi_admin_authenticated");
-          router.replace("/admin/login");
-        } else {
-          setIsChecking(false);
-        }
-      } catch (e) {
-        // 오류 발생 시 로그인 페이지로 리디렉션
-        clearAdminAuthCookie();
-        sessionStorage.removeItem("mimi_admin_authenticated");
-        router.replace("/admin/login");
-      }
-    };
-    
-    checkAuth();
+    // 항상 인증되지 않은 것으로 처리하여 로그인 페이지로 리디렉션
+    clearAdminAuthCookie();
+    sessionStorage.removeItem("mimi_admin_authenticated");
+    localStorage.removeItem("mimi_admin_authenticated");
+    router.replace("/admin/login");
   }, [pathname, router]);
   
   // 인증 확인 중이면 로딩 표시
