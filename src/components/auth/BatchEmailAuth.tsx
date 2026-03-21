@@ -41,7 +41,7 @@ export default function BatchEmailAuth() {
         email,
         status: validateEmail(email) ? "pending" : "error",
         message: validateEmail(email) ? undefined : "유효하지 않은 이메일 형식",
-      }));
+      })) as EmailStatus[];
 
     setEmailList(list);
     const validEmails = list.filter((item) => item.status === "pending");
