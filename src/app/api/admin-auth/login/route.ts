@@ -11,7 +11,8 @@ const COOKIE_NAME = "mimi_admin_auth";
 const COOKIE_MAX_AGE = 60 * 60 * 24; // 24h
 
 // 하드코딩된 비밀번호 목록 (임시 해결책)
-const VALID_PASSWORDS = ["미미살롱2024", "mimi2024", "admin2024"];
+// 여기에 원하는 비밀번호를 추가하거나 수정하세요
+const VALID_PASSWORDS = ["미미살롱2024", "mimi2024", "admin2024", "원하는_새_비밀번호"];
 
 function setAuthCookieResponse(): NextResponse {
   const isProd = process.env.NODE_ENV === "production";

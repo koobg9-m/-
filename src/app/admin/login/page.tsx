@@ -111,7 +111,7 @@ export default function AdminLoginPage() {
           
           <div className="text-xs text-amber-600 mb-3 p-2 bg-amber-50 rounded-lg">
             <p className="font-medium">사용 가능한 비밀번호:</p>
-            <p>미미살롱2024, mimi2024, admin2024</p>
+            <p>미미살롱2024, mimi2024, admin2024, 원하는_새_비밀번호</p>
           </div>
           
           <form onSubmit={handleSubmit} className="space-y-4">
