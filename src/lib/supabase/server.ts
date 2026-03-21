@@ -7,8 +7,8 @@ export async function createClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Missing Supabase environment variables");
+  if (!supabaseUrl || !supabaseAnonKey || !supabaseUrl.startsWith("http")) {
+    throw new Error("Missing or invalid Supabase environment variables");
   }
 
   return createServerClient(supabaseUrl, supabaseAnonKey, {

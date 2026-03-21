@@ -7,12 +7,11 @@
 
 const API = "/api/data";
 
+import { isSupabaseConfigured as checkSupabaseConfig } from "@/lib/supabase/client";
+
 function isSupabaseConfigured(): boolean {
   if (typeof window === "undefined") return false;
-  if (process.env.NEXT_PUBLIC_SKIP_SUPABASE === "1") return false;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-  return !!url && !!key && url.startsWith("http");
+  return checkSupabaseConfig();
 }
 
 function getApiUrl(path: string): string {
@@ -87,16 +86,22 @@ export function subscribeDataKey(key: string, onUpdate: () => void): () => void 
     try {
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
+      if (!supabase) return;
+      
       const channel = supabase
         .channel(`app_data:${key}`)
         .on("postgres_changes", { event: "*", schema: "public", table: "app_data", filter: `key=eq.${key}` }, () => {
           onUpdate();
         })
         .subscribe();
+      
       unsub = () => {
-        supabase.removeChannel(channel);
+        if (supabase && channel) {
+          supabase.removeChannel(channel);
+        }
       };
-    } catch {
+    } catch (error) {
+      console.error("Supabase Realtime subscription error:", error);
       // Realtime 미지원 시 무시
     }
   };

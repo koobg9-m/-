@@ -65,8 +65,9 @@
 |------|------|
 | **가능 여부** | 가능. `npm run dev`로 로컬 관리자에서 수정 후 `git push` / 배포하면 됨. |
 | **Supabase** | 로컬과 운영이 **같은 Supabase 프로젝트**면, 로컬에서 저장한 홈·공지 등 데이터는 **운영 사이트에도 그대로 반영**됩니다(동일 DB). 분리하려면 프로젝트를 나누거나 마이그레이션 전략이 필요합니다. |
-| **푸터 「관리자」** | **로컬 `npm run dev`**: 항상 표시. **운영(Vercel)**: `NEXT_PUBLIC_SHOW_ADMIN_LINK` 없으면 비노출(기본). |
-| **운영에서 비밀번호** | 링크만 숨겨도 `/admin` URL은 열릴 수 있어, 운영에서 관리자를 **완전히 쓰지 않을 때**는 Vercel에 `NEXT_PUBLIC_DISABLE_ADMIN=1` 설정 권장 → 프로덕션에서 `/admin` 전체가 홈으로 리다이렉트됩니다(로컬 `npm run dev`는 그대로 사용 가능). |
+| **푸터 「관리자」** | **로컬·운영 기본 표시**. 숨기려면 `NEXT_PUBLIC_HIDE_ADMIN_LINK=1`. |
+| **운영 관리자 비밀번호** | Vercel **`ADMIN_PASSWORD`** 또는 로컬에서 설정·동기화한 비밀번호(Supabase 해시)로 `/admin/login` 진입. |
+| **운영에서 /admin 완전 차단** | `NEXT_PUBLIC_DISABLE_ADMIN=1` → 프로덕션에서 `/admin` 이 홈으로 이동(로컬 dev는 영향 없음). |
 | **최초 설정** | 운영에서 관리자를 막았다면 `NEXT_PUBLIC_ALLOW_ADMIN_SETUP`은 `0`이면 충분합니다. |
 
 자세한 변수 설명은 `.env.example` 참고.

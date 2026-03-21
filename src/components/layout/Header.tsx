@@ -10,7 +10,7 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl border-b border-stone-100 overflow-x-hidden">
       <div className="page-container py-3 md:py-5 flex items-center justify-between gap-2 min-w-0">
-        <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-85 p-2 -m-2">
+        <Link prefetch={false} href="/" className="flex items-center gap-2 transition-opacity duration-150 hover:opacity-85 p-2 -m-2">
           <div className="rounded-xl overflow-hidden h-11 md:h-12 flex items-center">
             {logoError ? (
               <span className="font-malang-bold text-lg text-mimi-primary">미미살롱펫</span>

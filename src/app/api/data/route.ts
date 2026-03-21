@@ -5,10 +5,11 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin, isSupabaseConfiguredServer } from "@/lib/supabase/admin";
+import { SupabaseClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
-function safeGetSupabase() {
+function safeGetSupabase(): SupabaseClient | null {
   try {
     if (!isSupabaseConfiguredServer()) return null;
     return getSupabaseAdmin();
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
     if (!key?.trim()) {
       return NextResponse.json({ error: "key required" }, { status: 400 });
     }
-    const { data, error } = await (supabase as any).from("app_data").select("value").eq("key", key).single();
+    const { data, error } = await supabase.from("app_data").select("value").eq("key", key).single();
     if (error) {
       if (error.code === "PGRST116") return NextResponse.json({ value: null });
       if (error.code === "42P01" || error.message?.includes("does not exist")) {
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
     if (!key || typeof key !== "string" || !key.trim()) {
       return NextResponse.json({ error: "key required" }, { status: 400 });
     }
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("app_data")
       .upsert({ key: key.trim(), value: value ?? {}, updated_at: new Date().toISOString() }, { onConflict: "key" });
     if (error) {

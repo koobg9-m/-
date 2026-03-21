@@ -30,7 +30,14 @@ export default function Hero() {
           <p className="text-sm text-mimi-slate mb-2 leading-relaxed max-w-md mx-auto">
             전문 그루머가 우리 집으로 찾아와요. 강아지를 위한 편안한 미용 경험을 제공합니다.
           </p>
-          <p className="text-sm md:text-base font-brand font-semibold tracking-[0.08em] text-mimi-primary mb-6">세계 1등!! 안심방문 미용서비스 미미살롱펫 since 2017.</p>
+          <div className="mb-6 text-center space-y-1">
+            <p className="text-sm md:text-base font-brand font-semibold tracking-[0.08em] text-mimi-deepRed leading-snug">
+              세계 1등 ! 안심방문 강아지미용 <span className="font-bold">미미살롱펫</span>
+            </p>
+            <p className="text-[11px] md:text-xs font-brand font-medium tracking-[0.12em] text-mimi-deepRed/90">
+              since 2017
+            </p>
+          </div>
           <div className="flex flex-col sm:flex-row gap-2 justify-center">
             <Link href="/booking" className="btn-primary text-sm py-2.5 px-6">
               지금 예약하기

@@ -37,7 +37,8 @@ export async function saveAdminPasswordHash(hash: string): Promise<void> {
  * - 운영: NEXT_PUBLIC_ALLOW_ADMIN_SETUP=1 일 때만 (최초 1회 후 0으로)
  */
 export function isAdminSetupAllowed(): boolean {
-  if (typeof process === "undefined") return true;
-  if (process.env.NODE_ENV === "development") return true;
+  if (typeof window === "undefined") return false; // 서버 사이드에서는 기본적으로 false
+  if (typeof process === "undefined") return true; // process가 정의되지 않은 환경에서는 허용
+  if (process.env.NODE_ENV === "development") return true; // 개발 환경에서는 항상 허용
   return process.env.NEXT_PUBLIC_ALLOW_ADMIN_SETUP === "1" || process.env.NEXT_PUBLIC_ALLOW_ADMIN_SETUP === "true";
 }

@@ -62,7 +62,10 @@ export type PushLocalResult = {
   failed: string[];
 };
 
-/** 동기화( Supabase ) 가능할 때만 호출 */
+/** 
+ * 동기화( Supabase ) 가능할 때만 호출
+ * 성능 개선: 작은 배치로 나누어 처리하고 UI 스레드에 양보
+ */
 export async function pushLocalAppDataToServer(): Promise<PushLocalResult> {
   const result: PushLocalResult = { pushed: [], skipped: [], failed: [] };
   if (typeof window === "undefined") return result;
@@ -74,16 +77,35 @@ export async function pushLocalAppDataToServer(): Promise<PushLocalResult> {
   }
 
   const keys = Array.from(new Set<string>([...FIXED_KEYS, ...collectCustomerProfileKeys()]));
-
-  for (const key of keys) {
-    const value = parseLocal(key);
-    if (value === undefined) {
-      result.skipped.push(key);
-      continue;
+  
+  // 배치 크기 - 한 번에 처리할 키의 수
+  const BATCH_SIZE = 5;
+  
+  // 배치로 나누어 처리
+  for (let i = 0; i < keys.length; i += BATCH_SIZE) {
+    const batch = keys.slice(i, i + BATCH_SIZE);
+    
+    // 각 배치 처리 전에 UI 스레드에 양보
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    
+    // 배치 내 키들을 병렬로 처리
+    const batchResults = await Promise.all(
+      batch.map(async (key) => {
+        const value = parseLocal(key);
+        if (value === undefined) {
+          return { key, status: 'skipped' as const };
+        }
+        const ok = await saveData(key, value);
+        return { key, status: ok ? 'pushed' as const : 'failed' as const };
+      })
+    );
+    
+    // 결과 집계
+    for (const res of batchResults) {
+      if (res.status === 'pushed') result.pushed.push(res.key);
+      else if (res.status === 'skipped') result.skipped.push(res.key);
+      else result.failed.push(res.key);
     }
-    const ok = await saveData(key, value);
-    if (ok) result.pushed.push(key);
-    else result.failed.push(key);
   }
 
   return result;

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import LoginMethodGuide from "@/components/auth/LoginMethodGuide";
+import { getAuthCallbackUrl } from "@/lib/auth-callback-url";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const SKIP_CUSTOMER_AUTH = process.env.NEXT_PUBLIC_SKIP_CUSTOMER_AUTH === "true";
@@ -30,19 +31,20 @@ function formatAuthErrorEmail(msg: string): string {
   return msg;
 }
 
-/** /login?redirect=/booking → 이메일·카카오 콜백에 next 로 전달 */
-function getAuthCallbackUrl(): string {
-  if (typeof window === "undefined") return "";
-  const redirect = new URLSearchParams(window.location.search).get("redirect") || "/";
-  return `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirect)}`;
-}
-
 export default function LoginForm() {
   const [logoError, setLogoError] = useState(false);
   const [email, setEmail] = useState("");
   const [step, setStep] = useState<"input" | "email_sent">("input");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isLocalHost, setIsLocalHost] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const h = window.location.hostname;
+      setIsLocalHost(h === "localhost" || h === "127.0.0.1");
+    }
+  }, []);
 
   useEffect(() => {
     if (SKIP_CUSTOMER_AUTH && typeof window !== "undefined") {
@@ -148,6 +150,24 @@ export default function LoginForm() {
 
         <LoginMethodGuide />
 
+        {isLocalHost && (
+          <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-left text-[12px] text-amber-900 leading-snug">
+            <strong className="block mb-1">localhost 접속 중</strong>
+            주소창이 <code className="text-[11px] bg-amber-100 px-1 rounded">localhost</code>이면{" "}
+            <strong>개발 서버</strong>(<code className="text-[11px]">npm run dev</code>)가 꺼져 있을 때
+            「연결 거부」가 납니다. 실제 사이트로 로그인하려면{" "}
+            <a
+              href="https://mimisalon.vercel.app/login"
+              className="text-mimi-orange font-semibold underline underline-offset-2"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              배포 로그인 페이지
+            </a>
+            를 이용하세요.
+          </div>
+        )}
+
         <button
           type="button"
           onClick={handleKakaoLogin}
@@ -170,6 +190,11 @@ export default function LoginForm() {
         <p className="text-xs text-gray-500 mb-2 text-center">
           {step === "input" ? "이메일 주소를 입력하세요" : "메일함에서 로그인 링크를 확인하세요"}
         </p>
+        {step === "input" && !DEMO_MODE && isSupabaseConfigured() && (
+          <p className="text-[11px] text-stone-400 mb-2 text-center leading-snug">
+            받은 링크는 PC·휴대폰 어디서 열어도 됩니다. 메일이 안 오면 스팸함을 확인해 주세요.
+          </p>
+        )}
 
         {DEMO_MODE && (
           <div className="mb-4 p-3 bg-mimi-yellow/30 rounded-lg text-center text-sm text-amber-800">

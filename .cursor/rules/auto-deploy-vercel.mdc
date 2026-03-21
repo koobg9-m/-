@@ -1,0 +1,36 @@
+---
+description: 코드·콘텐츠 변경 후 Vercel 프로덕션 배포 자동 실행
+alwaysApply: true
+---
+
+# 배포 (mimisalon / Vercel)
+
+이 저장소에서 **앱 동작·표시에 영향이 있는 변경**을 마쳤으면, 같은 작업 흐름 안에서 **반드시 프로덕션 배포**까지 수행한다.
+
+## 언제 배포할지
+
+- **배포함**: `src/` · `public/` · 설정(`next.config` 등) · `package.json` 의존성 변경
+- **선택**: 순수 문서만(`*.md`) 수정이고 사용자 요청에 배포가 없으면 생략 가능
+
+## 명령 (Windows PowerShell)
+
+프로젝트 루트에서:
+
+```powershell
+Set-Location "프로젝트경로\mimisalon"; npm run deploy
+```
+
+- 로컬 빌드 오류·`Cannot find module './xxx.js'` 등 **`.next` 캐시 문제**가 나면:
+
+```powershell
+npm run deploy:force
+```
+
+## 배포 후
+
+- 성공 시 **https://mimisalon.vercel.app** 반영됨을 한 줄로 알린다.
+- `src/lib/site-version.ts` 의 `SITE_VERSION`을 올리는 것은 **의미 있는 릴리스마다** 수행한다(사용자가 버전 표시를 쓸 때).
+
+## 주의
+
+- 배포는 네트워크·Vercel CLI 로그인이 필요하다. 실패하면 로그 요약과 다음 조치를 안내한다.

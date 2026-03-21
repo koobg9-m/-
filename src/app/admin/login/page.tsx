@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { hashPassword, verifyPassword } from "@/lib/auth-utils";
-import { setAdminAuthCookie, hasAdminAuthCookie } from "@/lib/admin-auth-cookie";
+import { setAdminAuthCookie, hasAdminAuthCookie, clearAdminAuthCookie } from "@/lib/admin-auth-cookie";
 import {
   getAdminPasswordHash,
   saveAdminPasswordHash,
@@ -29,7 +29,14 @@ export default function AdminLoginPage() {
 
   const isProduction = process.env.NODE_ENV === "production";
 
+  // 페이지 로드 시 강제 로그아웃
   useEffect(() => {
+    // 브라우저 쿠키 및 세션 스토리지 삭제
+    clearAdminAuthCookie();
+    sessionStorage.removeItem(ADMIN_AUTH_KEY);
+    localStorage.removeItem("mimi_admin_authenticated");
+    
+    // 다른 초기화 코드
     let cancelled = false;
     (async () => {
       let cfg: { envPasswordAuth?: boolean; hasPasswordHashInDb?: boolean } = {};
@@ -63,28 +70,7 @@ export default function AdminLoginPage() {
     };
   }, []);
 
-  // 이미 로그인된 경우(쿠키) /admin으로
-  // 이 부분을 주석 처리하여 항상 로그인 화면이 표시되도록 합니다
-  /*
-  useEffect(() => {
-    if (!hashReady || setupBlocked) return;
-    (async () => {
-      try {
-        const me = await fetch("/api/admin-auth/me", { credentials: "include" }).then((r) => r.json());
-        if (me?.ok) {
-          window.location.replace("/admin");
-          return;
-        }
-      } catch {
-        // ignore
-      }
-      const hash = await getAdminPasswordHash();
-      if (hasAdminAuthCookie() && hash) {
-        window.location.replace("/admin");
-      }
-    })();
-  }, [hashReady, setupBlocked]);
-  */
+  // 자동 리디렉션 코드 제거 - 항상 로그인 화면 표시
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

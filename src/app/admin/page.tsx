@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, startTransition } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -181,6 +181,18 @@ export default function AdminPage() {
           setAuthChecked(true);
           return;
         }
+        /** Supabase 해시 로그인(HttpOnly 쿠키) — 서버가 인증됨으로 판단 */
+        try {
+          const me = await fetch("/api/admin-auth/me", { credentials: "include" }).then((r) => r.json());
+          if (!cancelled && me?.ok) {
+            sessionStorage.setItem(ADMIN_AUTH_KEY, "1");
+            setAuthenticated(true);
+            setAuthChecked(true);
+            return;
+          }
+        } catch {
+          /* ignore */
+        }
         const hash = await getAdminPasswordHash();
         if (cancelled) return;
         const auth = sessionStorage.getItem(ADMIN_AUTH_KEY);
@@ -336,7 +348,9 @@ export default function AdminPage() {
   const handleLogout = () => {
     sessionStorage.removeItem(ADMIN_AUTH_KEY);
     clearAdminAuthCookie();
-    router.replace("/admin/login");
+    void fetch("/api/admin-auth/logout", { method: "POST", credentials: "include" }).finally(() => {
+      router.replace("/admin/login");
+    });
   };
 
   const handleSaveSettings = () => {
@@ -834,40 +848,51 @@ export default function AdminPage() {
                 <button
                   type="button"
                   disabled={serverRefreshLoading}
-                  onClick={async () => {
-                    setServerRefreshLoading(true);
-                    try {
-                      // 1) 먼저 Supabase → localStorage 반영 후 2) 예약·디자이너·설정 UI 갱신
-                      await Promise.all([
-                        hydrateHomepageFromRemote(),
-                        hydrateTipsNoticesFromRemote(),
-                        hydrateServicesFromRemote(),
-                        hydratePointsFromRemote(),
-                        hydrateNotificationFromRemote(),
-                        hydrateAdminSettingsFromRemote(),
-                      ]);
-                      const [bList, gList] = await Promise.all([getBookings(), getGroomerProfiles()]);
-                      setBookings(bList);
-                      setGroomers(gList);
-                      setSettings(await getAdminSettingsAsync());
-                      setAdminDataRevision((r) => r + 1);
+                  onClick={() => {
+                    void (async () => {
+                      // 클릭 직후 페인트(INP): confirm/alert 전에 한 프레임 양보
+                      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+                      setServerRefreshLoading(true);
                       try {
-                        window.dispatchEvent(new CustomEvent("mimi_homepage_updated"));
-                        window.dispatchEvent(new CustomEvent("mimi_tips_notices_updated"));
-                      } catch {
-                        /* ignore */
+                        // 1) 먼저 Supabase → localStorage 반영 후 2) 예약·디자이너·설정 UI 갱신
+                        await Promise.all([
+                          hydrateHomepageFromRemote(),
+                          hydrateTipsNoticesFromRemote(),
+                          hydrateServicesFromRemote(),
+                          hydratePointsFromRemote(),
+                          hydrateNotificationFromRemote(),
+                          hydrateAdminSettingsFromRemote(),
+                        ]);
+                        const [bList, gList] = await Promise.all([getBookings(), getGroomerProfiles()]);
+                        const nextSettings = await getAdminSettingsAsync();
+                        const status = await getSyncStatus();
+                        startTransition(() => {
+                          setBookings(bList);
+                          setGroomers(gList);
+                          setSettings(nextSettings);
+                          setAdminDataRevision((r) => r + 1);
+                          setSyncStatus(status);
+                          setGroomersRefresh((r) => r + 1);
+                        });
+                        try {
+                          window.dispatchEvent(new CustomEvent("mimi_homepage_updated"));
+                          window.dispatchEvent(new CustomEvent("mimi_tips_notices_updated"));
+                        } catch {
+                          /* ignore */
+                        }
+                        window.setTimeout(() => {
+                          alert(
+                            "서버에서 새로고침 완료\n\n※ 배포 버전은 코드이고, 화면 내용은 DB+브라우저 저장소입니다. 로컬에서만 바꾼 뒤 저장이 안 됐다면 운영과 다를 수 있습니다. 그럴 땐 옆 버튼「로컬→서버 업로드」를 사용하세요."
+                          );
+                        }, 0);
+                      } catch (e) {
+                        window.setTimeout(() => {
+                          alert(`새로고침 실패: ${e instanceof Error ? e.message : String(e)}`);
+                        }, 0);
+                      } finally {
+                        setServerRefreshLoading(false);
                       }
-                      const status = await getSyncStatus();
-                      setSyncStatus(status);
-                      setGroomersRefresh((r) => r + 1);
-                      alert(
-                        "서버에서 새로고침 완료\n\n※ 배포 버전은 코드이고, 화면 내용은 DB+브라우저 저장소입니다. 로컬에서만 바꾼 뒤 저장이 안 됐다면 운영과 다를 수 있습니다. 그럴 땐 옆 버튼「로컬→서버 업로드」를 사용하세요."
-                      );
-                    } catch (e) {
-                      alert(`새로고침 실패: ${e instanceof Error ? e.message : String(e)}`);
-                    } finally {
-                      setServerRefreshLoading(false);
-                    }
+                    })();
                   }}
                   className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                 >
@@ -876,37 +901,91 @@ export default function AdminPage() {
                 <button
                   type="button"
                   disabled={serverRefreshLoading}
-                  onClick={async () => {
-                    if (
-                      !confirm(
-                        "이 PC 브라우저에 있는 데이터(홈·공지·예약·요금 등)를 Supabase에 올립니다.\n다른 곳(운영 사이트)에 있던 내용은 이 PC 내용으로 덮어씌워질 수 있습니다.\n계속할까요?"
-                      )
-                    ) {
-                      return;
-                    }
+                  onClick={() => {
+                    // 즉시 상태 업데이트로 버튼 비활성화 (시각적 피드백)
                     setServerRefreshLoading(true);
-                    try {
-                      const r = await pushLocalAppDataToServer();
-                      const msg = [
-                        `업로드: ${r.pushed.length}개 키`,
-                        r.skipped.length ? `건너뜀(비어 있음): ${r.skipped.length}개` : "",
-                        r.failed.length ? `실패: ${r.failed.join(", ")}` : "",
-                      ]
-                        .filter(Boolean)
-                        .join("\n");
-                      alert(msg || "완료");
-                      const [bList, gList] = await Promise.all([getBookings(), getGroomerProfiles()]);
-                      setBookings(bList);
-                      setGroomers(gList);
-                      setSettings(await getAdminSettingsAsync());
-                      setAdminDataRevision((x) => x + 1);
-                      setGroomersRefresh((x) => x + 1);
-                      setSyncStatus(await getSyncStatus());
-                    } catch (e) {
-                      alert(`업로드 실패: ${e instanceof Error ? e.message : String(e)}`);
-                    } finally {
-                      setServerRefreshLoading(false);
-                    }
+                    
+                    // 다음 프레임에서 확인 대화상자 표시 (버튼 비활성화 렌더링 후)
+                    requestAnimationFrame(() => {
+                      // 사용자 확인 대화상자
+                      if (
+                        !confirm(
+                          "이 PC 브라우저에 있는 데이터(홈·공지·예약·요금 등)를 Supabase에 올립니다.\n다른 곳(운영 사이트)에 있던 내용은 이 PC 내용으로 덮어씌워질 수 있습니다.\n계속할까요?"
+                        )
+                      ) {
+                        // 취소 시 버튼 다시 활성화
+                        setServerRefreshLoading(false);
+                        return;
+                      }
+                      
+                      // 사용자가 확인한 경우 비동기 작업 시작
+                      void (async () => {
+                        try {
+                          // 업로드 진행 상태 표시를 위한 상태 업데이트
+                          const progressIndicator = document.createElement('div');
+                          progressIndicator.style.position = 'fixed';
+                          progressIndicator.style.bottom = '20px';
+                          progressIndicator.style.right = '20px';
+                          progressIndicator.style.padding = '10px 15px';
+                          progressIndicator.style.backgroundColor = 'rgba(251, 191, 36, 0.9)';
+                          progressIndicator.style.color = '#78350f';
+                          progressIndicator.style.borderRadius = '6px';
+                          progressIndicator.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+                          progressIndicator.style.zIndex = '9999';
+                          progressIndicator.textContent = '데이터 업로드 중...';
+                          document.body.appendChild(progressIndicator);
+                          
+                          // 데이터 업로드 실행 (최적화된 배치 처리 버전)
+                          const r = await pushLocalAppDataToServer();
+                          
+                          // 결과 메시지 생성
+                          const msg = [
+                            `업로드: ${r.pushed.length}개 키`,
+                            r.skipped.length ? `건너뜀(비어 있음): ${r.skipped.length}개` : "",
+                            r.failed.length ? `실패: ${r.failed.join(", ")}` : "",
+                          ]
+                            .filter(Boolean)
+                            .join("\n");
+                          
+                          // 상태 업데이트를 위한 데이터 가져오기
+                          // 각 작업 사이에 UI 스레드에 양보
+                          const bList = await getBookings();
+                          await new Promise<void>(resolve => setTimeout(resolve, 0));
+                          
+                          const gList = await getGroomerProfiles();
+                          await new Promise<void>(resolve => setTimeout(resolve, 0));
+                          
+                          const nextSettings = await getAdminSettingsAsync();
+                          await new Promise<void>(resolve => setTimeout(resolve, 0));
+                          
+                          const status = await getSyncStatus();
+                          
+                          // 상태 업데이트를 낮은 우선순위로 처리
+                          startTransition(() => {
+                            setBookings(bList);
+                            setGroomers(gList);
+                            setSettings(nextSettings);
+                            setAdminDataRevision((x) => x + 1);
+                            setGroomersRefresh((x) => x + 1);
+                            setSyncStatus(status);
+                          });
+                          
+                          // 진행 상태 표시 제거
+                          document.body.removeChild(progressIndicator);
+                          
+                          // 완료 메시지는 별도 태스크에서 표시
+                          setTimeout(() => {
+                            alert(msg || "완료");
+                          }, 100);
+                        } catch (e) {
+                          setTimeout(() => {
+                            alert(`업로드 실패: ${e instanceof Error ? e.message : String(e)}`);
+                          }, 100);
+                        } finally {
+                          setServerRefreshLoading(false);
+                        }
+                      })();
+                    });
                   }}
                   className="px-4 py-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                 >

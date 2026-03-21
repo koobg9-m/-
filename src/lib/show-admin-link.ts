@@ -1,12 +1,15 @@
 /**
  * 푸터 「관리자」 링크 표시 여부
- * - `npm run dev`(NODE_ENV=development): 항상 표시 → 로컬에서 수정 가능
- * - 프로덕션 빌드/배포: NEXT_PUBLIC_SHOW_ADMIN_LINK=1|true 일 때만 (기본 비노출)
+ * - 개발: 항상 표시
+ * - 프로덕션: 기본 표시 (비밀번호로 보호). 숨기려면 NEXT_PUBLIC_HIDE_ADMIN_LINK=1
  */
 export function shouldShowAdminLinkInFooter(): boolean {
   if (process.env.NODE_ENV === "development") {
     return true;
   }
-  const v = process.env.NEXT_PUBLIC_SHOW_ADMIN_LINK;
-  return v === "1" || v === "true";
+  const hide = process.env.NEXT_PUBLIC_HIDE_ADMIN_LINK;
+  if (hide === "1" || hide === "true") {
+    return false;
+  }
+  return true;
 }
