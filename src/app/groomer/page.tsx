@@ -6,6 +6,7 @@ import Link from "next/link";
 import { getGroomerById, getGroomerProfiles, saveGroomerProfile, getBookings, updateBooking, buildAllServiceItemsForGroomer } from "@/lib/groomer-storage";
 import type { GroomerProfile, AvailableSlot, Booking } from "@/lib/groomer-types";
 import { verifyPassword } from "@/lib/auth-utils";
+import GroomerAutoLogin, { setGroomerAutoLogin, isGroomerAutoLoginEnabled, clearGroomerAutoLogin } from "@/components/groomer/GroomerAutoLogin";
 
 function formatBookingPets(b: { pets?: { name: string; species: string; healthConditions?: string; isAggressive?: boolean }[]; petName: string; petType: string; petHealthConditions?: string; petIsAggressive?: boolean }): string {
   if (b.pets?.length) {
@@ -165,6 +166,7 @@ export default function GroomerPage() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [autoLogin, setAutoLogin] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [showLogin, setShowLogin] = useState(false);
@@ -191,6 +193,9 @@ export default function GroomerPage() {
     (async () => {
       await hydrateServicesFromRemote();
       await loadProfile();
+      
+      // 자동 로그인 설정 확인
+      setAutoLogin(isGroomerAutoLoginEnabled());
     })();
   }, []);
 
@@ -211,6 +216,14 @@ export default function GroomerPage() {
     if (ok) {
       sessionStorage.setItem(GROOMER_AUTH_KEY, myId);
       setAuthenticated(true);
+      
+      // 자동 로그인 설정
+      if (autoLogin) {
+        setGroomerAutoLogin(myId, passwordInput, true);
+      } else {
+        clearGroomerAutoLogin();
+      }
+      
       setPasswordInput("");
     } else {
       setPasswordError("비밀번호가 올바르지 않습니다.");
@@ -219,6 +232,7 @@ export default function GroomerPage() {
 
   const handleLogout = () => {
     sessionStorage.removeItem(GROOMER_AUTH_KEY);
+    clearGroomerAutoLogin();
     setAuthenticated(false);
   };
 
@@ -355,40 +369,56 @@ export default function GroomerPage() {
   }
 
   if (profile.passwordHash && authenticated === false) {
-    return (
-      <div className="min-h-screen flex flex-col bg-mimi-cream">
-        <Header />
-        <main className="flex-1 flex items-center justify-center py-16">
-          <div className="w-full max-w-sm card p-6">
-            <h2 className="text-xl font-bold text-gray-800 mb-2">디자이너 로그인</h2>
-            <p className="text-sm text-gray-600 mb-4">{profile.name}님의 대시보드에 접근하려면 관리자가 부여한 비밀번호를 입력하세요.</p>
-            <form onSubmit={handlePasswordSubmit} className="space-y-4">
+  return (
+    <div className="min-h-screen flex flex-col bg-mimi-cream">
+      <Header />
+      <GroomerAutoLogin />
+      <main className="flex-1 flex items-center justify-center py-16">
+        <div className="w-full max-w-sm card p-6">
+          <h2 className="text-xl font-bold text-gray-800 mb-2">디자이너 로그인</h2>
+          <p className="text-sm text-gray-600 mb-4">{profile.name}님의 대시보드에 접근하려면 관리자가 부여한 비밀번호를 입력하세요.</p>
+          <form onSubmit={handlePasswordSubmit} className="space-y-4">
+            <input
+              type="password"
+              value={passwordInput}
+              onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(""); }}
+              placeholder="비밀번호"
+              className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none"
+              autoFocus
+            />
+            {passwordError && <p className="text-sm text-red-600">{passwordError}</p>}
+            
+            <div className="flex items-center">
               <input
-                type="password"
-                value={passwordInput}
-                onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(""); }}
-                placeholder="비밀번호"
-                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none"
-                autoFocus
+                type="checkbox"
+                id="autoLogin"
+                checked={autoLogin}
+                onChange={(e) => setAutoLogin(e.target.checked)}
+                className="w-4 h-4 text-mimi-orange border-gray-300 rounded focus:ring-mimi-orange"
               />
-              {passwordError && <p className="text-sm text-red-600">{passwordError}</p>}
-              <button type="submit" className="w-full py-3 bg-mimi-orange text-white rounded-xl font-bold">
-                로그인
-              </button>
-            </form>
-            <button onClick={() => { localStorage.removeItem(MY_GROOMER_KEY); sessionStorage.removeItem(GROOMER_AUTH_KEY); window.location.reload(); }} className="mt-4 w-full text-sm text-gray-500 hover:text-gray-700">
-              다른 계정으로 로그인
+              <label htmlFor="autoLogin" className="ml-2 text-sm text-gray-600">
+                자동 로그인
+              </label>
+            </div>
+            
+            <button type="submit" className="w-full py-3 bg-mimi-orange text-white rounded-xl font-bold">
+              로그인
             </button>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    );
+          </form>
+          <button onClick={() => { localStorage.removeItem(MY_GROOMER_KEY); sessionStorage.removeItem(GROOMER_AUTH_KEY); clearGroomerAutoLogin(); window.location.reload(); }} className="mt-4 w-full text-sm text-gray-500 hover:text-gray-700">
+            다른 계정으로 로그인
+          </button>
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
   }
 
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
+      <GroomerAutoLogin />
       <main className="flex-1 p-6 md:p-8">
         <div className="max-w-4xl mx-auto">
             <Link href="/" className="text-mimi-orange hover:underline mb-4 inline-block">← 홈으로</Link>
