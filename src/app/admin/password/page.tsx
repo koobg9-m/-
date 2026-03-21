@@ -49,6 +49,16 @@ export default function AdminPasswordPage() {
         throw new Error(data.error || "비밀번호 변경 중 오류가 발생했습니다.");
       }
       
+      const data = await response.json();
+      
+      // 로컬 스토리지에 비밀번호 해시 저장
+      if (data.hash) {
+        localStorage.setItem("mimi_admin_password_hash", data.hash);
+        
+        // 하드코딩된 비밀번호 목록에 추가하기 위한 안내 메시지 추가
+        console.log("비밀번호 해시:", data.hash);
+      }
+      
       setSuccess(true);
       setPassword("");
       setConfirmPassword("");

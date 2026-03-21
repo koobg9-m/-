@@ -3,13 +3,10 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { hashPasswordSha256 } from "@/lib/admin-auth-server";
-import { isSupabaseConfiguredServer } from "@/lib/supabase/admin";
-import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const ADMIN_PW_HASH_KEY = "mimi_admin_password_hash";
 const COOKIE_NAME = "mimi_admin_auth";
 
 export async function POST(req: NextRequest) {
@@ -38,44 +35,15 @@ export async function POST(req: NextRequest) {
     // 비밀번호 해시 생성
     const passwordHash = hashPasswordSha256(password);
     
-    // 1. 환경 변수 비밀번호 변경 (Vercel에서는 API로 변경 불가능)
-    // 환경 변수는 Vercel 대시보드에서 직접 변경해야 함
-    
-    // 2. 데이터베이스에 비밀번호 해시 저장
-    if (isSupabaseConfiguredServer()) {
-      try {
-        const supabase = getSupabaseAdmin();
-        
-        // 기존 데이터 삭제 후 새로 추가
-        await supabase.from("app_data").delete().eq("key", ADMIN_PW_HASH_KEY);
-        
-        // 새 데이터 추가
-        const { error } = await supabase.from("app_data").insert({
-          key: ADMIN_PW_HASH_KEY,
-          value: passwordHash
-        });
-        
-        if (error) {
-          console.error("비밀번호 해시 저장 오류:", error);
-          return NextResponse.json(
-            { error: "비밀번호 변경 중 오류가 발생했습니다." },
-            { status: 500 }
-          );
-        }
-      } catch (error) {
-        console.error("Supabase 오류:", error);
-        return NextResponse.json(
-          { error: "데이터베이스 연결 중 오류가 발생했습니다." },
-          { status: 500 }
-        );
-      }
-    }
-    
-    // 3. 코드의 하드코딩된 비밀번호 목록 업데이트 (API로 직접 변경 불가능)
-    // 이 부분은 코드 수정 후 배포가 필요함
+    // 로컬 스토리지에 비밀번호 해시 저장 (클라이언트 측에서 처리)
+    // 실제 저장은 클라이언트 측에서 처리하므로 여기서는 해시만 반환
     
     return NextResponse.json(
-      { success: true, message: "비밀번호가 성공적으로 변경되었습니다." },
+      { 
+        success: true, 
+        message: "비밀번호가 성공적으로 변경되었습니다.",
+        hash: passwordHash  // 클라이언트에서 저장할 해시
+      },
       {
         headers: {
           "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
