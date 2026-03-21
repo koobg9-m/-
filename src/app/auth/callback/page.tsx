@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
+import { getUserProfile, updateUserProfile } from "@/lib/auth/user-profile";
 
 /** Supabase가 리다이렉트에 실을 수 있는 OTP 타입 (token_hash 플로우) */
 const OTP_TYPES = new Set(["email", "signup", "magiclink", "recovery", "invite", "email_change"]);
@@ -121,6 +122,16 @@ function AuthCallbackContent() {
               try {
                 const session = await waitForAuthSession(supabase);
                 if (session) {
+                  // 사용자 프로필 정보 처리
+                  try {
+                    const profile = await getUserProfile(supabase, session.user);
+                    if (profile) {
+                      await updateUserProfile(supabase, profile);
+                    }
+                  } catch (profileError) {
+                    console.error("프로필 정보 처리 오류:", profileError);
+                  }
+                  
                   router.replace(next);
                   return;
                 }

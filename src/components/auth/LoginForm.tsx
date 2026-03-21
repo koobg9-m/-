@@ -118,24 +118,48 @@ export default function LoginForm() {
       setError("카카오 로그인을 사용할 수 없습니다. (설정 확인 필요)");
       return;
     }
+    
     setError("");
+    setLoading(true);
+    
     try {
       const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      
       // 항상 프로덕션 URL 사용
       const redirectTo = "https://mimisalon.vercel.app/auth/callback?next=%2F";
       
-      const { error: err } = await createClient().auth.signInWithOAuth({
+      const { data, error: err } = await supabase.auth.signInWithOAuth({
         provider: "kakao",
-        options: { redirectTo },
+        options: { 
+          redirectTo,
+          queryParams: {
+            // 필요한 추가 권한 요청
+            scope: "profile_nickname,profile_image,account_email"
+          }
+        },
       });
+      
       if (err) throw err;
+      
+      // 성공 시 리디렉션은 Supabase가 자동으로 처리
+      // 로컬에서 테스트하는 경우 수동 리디렉션
+      if (data?.url && isLocalHost) {
+        window.location.href = data.url;
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "카카오 로그인 실패";
+      console.error("카카오 로그인 오류:", err);
+      
       if (msg.includes("provider is not enabled") || msg.includes("Unsupported provider")) {
         setError("카카오 로그인이 아직 준비되지 않았습니다. 이메일로 시도해 주세요.");
+      } else if (msg.includes("popup_closed_by_user") || msg.includes("popup closed")) {
+        setError("로그인 창이 닫혔습니다. 다시 시도해 주세요.");
       } else {
         setError(msg);
       }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -179,10 +203,18 @@ export default function LoginForm() {
         <button
           type="button"
           onClick={handleKakaoLogin}
-          className="w-full mb-1.5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors hover:opacity-90"
+          disabled={loading}
+          className="w-full mb-1.5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
           style={{ backgroundColor: "#FEE500", color: "#000" }}
         >
-          카카오로 시작하기
+          {loading ? "처리 중..." : (
+            <>
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path fillRule="evenodd" clipRule="evenodd" d="M9 0.5C4.02944 0.5 0 3.69066 0 7.68401C0 10.1894 1.55943 12.3958 3.93457 13.7485C3.63379 14.7753 3.26666 15.7638 2.83568 16.7045C2.81501 16.7469 2.80692 16.7947 2.81237 16.8419C2.81782 16.8891 2.83659 16.9336 2.86671 16.9703C2.89682 17.0071 2.93704 17.0347 2.98264 17.0498C3.02823 17.0649 3.07759 17.0669 3.12456 17.0557C4.2336 16.8198 5.30631 16.4395 6.31288 15.9232C7.17721 16.1547 8.0807 16.2727 9 16.2727C13.9706 16.2727 18 13.0774 18 9.08401C18 5.09066 13.9706 0.5 9 0.5Z" fill="currentColor"/>
+              </svg>
+              카카오로 시작하기
+            </>
+          )}
         </button>
         <p className="text-[11px] text-gray-400 mb-4 text-center">카카오 계정으로 연결됩니다</p>
 
