@@ -29,8 +29,10 @@ export default function AdminLoginPage() {
 
   const isProduction = process.env.NODE_ENV === "production";
 
-  // 페이지 로드 시 강제 로그아웃
+  // 페이지 로드 시 리디렉션 상태 초기화
   useEffect(() => {
+    localStorage.removeItem("admin_redirecting");
+    
     // 브라우저 쿠키 및 세션 스토리지 삭제
     clearAdminAuthCookie();
     sessionStorage.removeItem(ADMIN_AUTH_KEY);
@@ -70,29 +72,7 @@ export default function AdminLoginPage() {
     };
   }, []);
 
-  // 이미 인증된 경우 자동으로 관리자 대시보드로 리디렉션
-  useEffect(() => {
-    if (hashReady && !setupBlocked) {
-      const checkAuth = async () => {
-        try {
-          const res = await fetch("/api/admin-auth/me", {
-            credentials: "include",
-            cache: "no-store",
-            headers: {
-              "Cache-Control": "no-cache",
-            },
-          });
-          const data = await res.json();
-          if (data.ok) {
-            window.location.replace("/admin");
-          }
-        } catch (error) {
-          console.error("인증 상태 확인 중 오류 발생:", error);
-        }
-      };
-      checkAuth();
-    }
-  }, [hashReady, setupBlocked]);
+  // 자동 리디렉션 코드는 제거 - 로그인 페이지는 항상 표시
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -206,7 +186,7 @@ export default function AdminLoginPage() {
           <p className="text-sm text-gray-600 mb-4">{subtitle}</p>
           {isProduction && (
             <p className="text-xs text-stone-500 mb-3 leading-relaxed">
-              운영에서는 <code className="text-[11px] bg-stone-100 px-1 rounded">ADMIN_PASSWORD</code>(Vercel) 또는
+              운영에서는 <code className="text-[11px] bg-stone-100 px-1.5 py-0.5 rounded font-mono">ADMIN_PASSWORD</code>(Vercel) 또는
               Supabase에 동기화된 비밀번호 중 하나로 로그인됩니다.
             </p>
           )}

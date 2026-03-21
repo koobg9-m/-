@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const COOKIE_NAME = "mimi_admin_auth";
 
@@ -13,5 +14,15 @@ export async function GET(req: NextRequest) {
   const authCookie = req.cookies.get(COOKIE_NAME);
   const isAuthenticated = !!authCookie?.value;
   
-  return NextResponse.json({ ok: isAuthenticated });
+  // 캐시 방지 헤더 추가
+  return NextResponse.json(
+    { ok: isAuthenticated },
+    {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+      }
+    }
+  );
 }
