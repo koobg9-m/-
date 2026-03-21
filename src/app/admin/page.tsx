@@ -2,6 +2,7 @@
 
 import { useState, useEffect, startTransition } from "react";
 import { useRouter } from "next/navigation";
+import AdminMenu from "@/components/admin/AdminMenu";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { getBookings, getGroomerProfiles, updateGroomer, updateBooking } from "@/lib/groomer-storage";
@@ -806,7 +807,10 @@ export default function AdminPage() {
       <Header />
       <main className="flex-1 p-6 md:p-8">
         <div className="max-w-5xl mx-auto">
-            <Link href="/" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-mimi-orange transition-colors mb-4">← 홈으로</Link>
+            <div className="flex justify-between items-center mb-4">
+              <Link href="/" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-mimi-orange transition-colors">← 홈으로</Link>
+              <AdminMenu />
+            </div>
             <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
               <h1 className="section-title">관리자</h1>
               <div className="flex flex-wrap gap-2 items-center">
