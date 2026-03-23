@@ -131,8 +131,10 @@ export default function CustomerProfileForm({ onComplete, initialData, submitLab
           </div>
           <div className="min-w-0 space-y-2">
             <label className="block text-sm font-medium text-gray-800">① 기본 주소 (도로명/지번)</label>
-            <p className="text-xs text-gray-500 -mt-0.5">우편번호 찾기로 선택하면 자동으로 채워집니다.</p>
-            <AddressSearchInput value={address} onChange={setAddress} placeholder="예: 서울시 강남구 테헤란로 …" />
+            <p className="text-xs text-gray-500 -mt-0.5">
+              <span className="text-gray-700 font-medium">주황색 버튼</span>으로 우편번호를 찾거나, 아래 칸에 직접 입력하세요.
+            </p>
+            <AddressSearchInput value={address} onChange={setAddress} placeholder="검색 후 자동 입력되거나 직접 입력" />
           </div>
           <div className="min-w-0 space-y-2">
             <label className="block text-sm font-medium text-gray-800">② 상세 주소</label>

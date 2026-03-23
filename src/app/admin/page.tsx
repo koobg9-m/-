@@ -5,20 +5,22 @@ import { useRouter } from "next/navigation";
 import AdminMenu from "@/components/admin/AdminMenu";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { getBookings, getGroomerProfiles, updateGroomer, updateBooking } from "@/lib/groomer-storage";
+import { getBookings, getGroomerProfiles, updateGroomer, updateBooking, deleteGroomer, deleteBookingsForCustomerKey } from "@/lib/groomer-storage";
 import { SERVICE_DEFS, getServicePrices, saveServicePrices, getServicePricesLegacy, getAdditionalFees, saveAdditionalFees, DEFAULT_ADDITIONAL_FEES, DEFAULT_PRICE_TABLE, hydrateServicesFromRemote, type BreedType, type WeightTier, type AdditionalFeeItem } from "@/lib/services";
 import { hashPassword, verifyPassword } from "@/lib/auth-utils";
 import { clearAdminAuthCookie, hasAdminAuthCookie } from "@/lib/admin-auth-cookie";
 import { getAdminSettings, getAdminSettingsAsync, saveAdminSettings, hydrateAdminSettingsFromRemote, calcCommission, calcSettlementAmount, getServiceTotalForSettlement } from "@/lib/admin-settings";
 import { getSyncStatus } from "@/lib/data-sync";
 import { downloadSettlementExcel } from "@/lib/settlement-excel";
+import { downloadCustomerExcelByRegion, downloadGroomerExcelByRegion } from "@/lib/admin-lists-excel";
 import { checkAndSendGroomingReminders } from "@/lib/grooming-reminder";
-import { getPointSettings, savePointSettings, getCustomerPoints, setCustomerPoints, hydratePointsFromRemote, type PointSettings } from "@/lib/point-storage";
+import { getPointSettings, savePointSettings, getCustomerPoints, setCustomerPoints, removeCustomerPoints, hydratePointsFromRemote, type PointSettings } from "@/lib/point-storage";
 import { getSmsTemplates, saveSmsTemplates, getSmsLog, addSmsLog, fillTemplate, hydrateNotificationFromRemote, type SmsTemplate } from "@/lib/notification-storage";
 import { hydrateHomepageFromRemote } from "@/lib/homepage-content-storage";
 import { hydrateTipsNoticesFromRemote } from "@/lib/tips-notices-storage";
 import { pushLocalAppDataToServer } from "@/lib/push-local-app-data-to-server";
 import { getAdminPasswordHash, saveAdminPasswordHash } from "@/lib/admin-password-hash";
+import { deleteCustomerProfileStorage } from "@/lib/customer-storage";
 import type { GroomerProfile } from "@/lib/groomer-types";
 import AdminHomepageEditor from "@/components/admin/AdminHomepageEditor";
 import AdminLocalBackupCard from "@/components/admin/AdminLocalBackupCard";
@@ -156,6 +158,7 @@ export default function AdminPage() {
   const [groomerPwModal, setGroomerPwModal] = useState<{ id: string; name: string; phone?: string } | null>(null);
   /** 비밀번호 설정 직후 디자이너에게 전달용 (복사·문자) */
   const [groomerPwDeliver, setGroomerPwDeliver] = useState<{ name: string; password: string; phone?: string } | null>(null);
+  const [groomerPwSmsLoading, setGroomerPwSmsLoading] = useState(false);
   const [groomerPwInput, setGroomerPwInput] = useState("");
   const [groomerPwError, setGroomerPwError] = useState("");
   const [groomerSearch, setGroomerSearch] = useState("");
@@ -482,17 +485,14 @@ export default function AdminPage() {
     c.type = c.visitCount >= 6 ? "VIP" : c.visitCount >= 2 ? "재방문" : "신규";
     return acc;
   }, {});
-  let customerList = Object.values(customerDetailMap).filter((c) => c.key !== "unknown");
-  if (customerFilterRegion !== "all") {
-    customerList = customerList.filter((c) => c.region === customerFilterRegion);
-  }
+  let customerListBase = Object.values(customerDetailMap).filter((c) => c.key !== "unknown");
   if (customerFilterVisit !== "all") {
     const [min, max] = customerFilterVisit === "1" ? [1, 1] : customerFilterVisit === "2-3" ? [2, 3] : customerFilterVisit === "4-5" ? [4, 5] : [6, 999];
-    customerList = customerList.filter((c) => c.visitCount >= min && c.visitCount <= max);
+    customerListBase = customerListBase.filter((c) => c.visitCount >= min && c.visitCount <= max);
   }
   if (customerSearch.trim()) {
     const q = customerSearch.trim().toLowerCase();
-    customerList = customerList.filter(
+    customerListBase = customerListBase.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
         c.phone.replace(/-/g, "").includes(q.replace(/-/g, "")) ||
@@ -509,7 +509,11 @@ export default function AdminPage() {
         : customerSort === "amount"
           ? (a: CustomerDetail, b: CustomerDetail) => b.totalAmount - a.totalAmount
           : (a: CustomerDetail, b: CustomerDetail) => (a.name || a.phone).localeCompare(b.name || b.phone);
-  customerList = [...customerList].sort(sortFn);
+  customerListBase = [...customerListBase].sort(sortFn);
+  const customerList =
+    customerFilterRegion === "all"
+      ? customerListBase
+      : customerListBase.filter((c) => c.region === customerFilterRegion);
 
   const petTypeCounts = bookings.reduce<Record<string, number>>((acc, b) => {
     const types = b.pets?.map((p) => p.species ?? b.petType) ?? [b.petType];
@@ -589,7 +593,7 @@ export default function AdminPage() {
     const region = (g.address ?? "").split(/\s+/).slice(0, 2).join(" ") || "미입력";
     groomerRegionCounts[region] = (groomerRegionCounts[region] ?? 0) + 1;
   }
-  let groomerList = bookingsByGroomer
+  let groomerListBase = bookingsByGroomer
     .filter((x) => x.groomer.id !== "_none")
     .map(({ groomer, completed, avgRating, reviews }) => ({
       g: groomer as GroomerProfile,
@@ -599,32 +603,29 @@ export default function AdminPage() {
       region: ((groomer as GroomerProfile).address ?? "").split(/\s+/).slice(0, 2).join(" ") || "미입력",
     }));
   if (groomerFilterStatus !== "all") {
-    groomerList = groomerList.filter((x) =>
+    groomerListBase = groomerListBase.filter((x) =>
       groomerFilterStatus === "active" ? !x.g.suspended : x.g.suspended
     );
   }
-  if (groomerFilterRegion !== "all") {
-    groomerList = groomerList.filter((x) => x.region === groomerFilterRegion);
-  }
   if (groomerFilterDateFrom) {
-    groomerList = groomerList.filter((x) => (x.g.createdAt ?? "").slice(0, 10) >= groomerFilterDateFrom);
+    groomerListBase = groomerListBase.filter((x) => (x.g.createdAt ?? "").slice(0, 10) >= groomerFilterDateFrom);
   }
   if (groomerFilterDateTo) {
-    groomerList = groomerList.filter((x) => (x.g.createdAt ?? "").slice(0, 10) <= groomerFilterDateTo);
+    groomerListBase = groomerListBase.filter((x) => (x.g.createdAt ?? "").slice(0, 10) <= groomerFilterDateTo);
   }
   if (groomerFilterRadius !== "all") {
     const r = parseInt(groomerFilterRadius, 10);
-    if (!isNaN(r)) groomerList = groomerList.filter((x) => (x.g.radiusKm ?? 10) === r);
+    if (!isNaN(r)) groomerListBase = groomerListBase.filter((x) => (x.g.radiusKm ?? 10) === r);
   }
   if (groomerFilterAccount !== "all") {
     const hasAccount = (g: GroomerProfile) => !!(g.bankName?.trim() && g.accountNumber?.trim());
-    groomerList = groomerList.filter((x) =>
+    groomerListBase = groomerListBase.filter((x) =>
       groomerFilterAccount === "yes" ? hasAccount(x.g) : !hasAccount(x.g)
     );
   }
   if (groomerFilterVisits !== "all") {
     const v = groomerFilterVisits;
-    groomerList = groomerList.filter((x) => {
+    groomerListBase = groomerListBase.filter((x) => {
       const n = x.completed.length;
       if (v === "0") return n === 0;
       if (v === "1") return n >= 1;
@@ -634,7 +635,7 @@ export default function AdminPage() {
     });
   }
   if (groomerFilterRating !== "all") {
-    groomerList = groomerList.filter((x) => {
+    groomerListBase = groomerListBase.filter((x) => {
       const rating = parseFloat(x.avgRating ?? "0") || 0;
       if (groomerFilterRating === "none") return rating === 0;
       if (groomerFilterRating === "1") return rating >= 1;
@@ -645,13 +646,13 @@ export default function AdminPage() {
     });
   }
   if (groomerFilterPassword !== "all") {
-    groomerList = groomerList.filter((x) =>
+    groomerListBase = groomerListBase.filter((x) =>
       groomerFilterPassword === "yes" ? !!(x.g.passwordHash?.trim()) : !(x.g.passwordHash?.trim())
     );
   }
   if (groomerSearch.trim()) {
     const q = groomerSearch.trim().toLowerCase();
-    groomerList = groomerList.filter(
+    groomerListBase = groomerListBase.filter(
       (x) =>
         x.g.name.toLowerCase().includes(q) ||
         (x.g.phone ?? "").toLowerCase().includes(q) ||
@@ -660,17 +661,17 @@ export default function AdminPage() {
         (x.g.career ?? "").toLowerCase().includes(q)
     );
   }
-  const groomerSortFn =
-    groomerSort === "visits"
-      ? (a: typeof groomerList[0], b: typeof groomerList[0]) => b.completed.length - a.completed.length
-      : groomerSort === "rating"
-        ? (a: typeof groomerList[0], b: typeof groomerList[0]) =>
-            (parseFloat(b.avgRating ?? "0") || 0) - (parseFloat(a.avgRating ?? "0") || 0)
-        : groomerSort === "name"
-          ? (a: typeof groomerList[0], b: typeof groomerList[0]) => a.g.name.localeCompare(b.g.name)
-          : (a: typeof groomerList[0], b: typeof groomerList[0]) =>
-              (b.g.createdAt ?? "").localeCompare(a.g.createdAt ?? "");
-  groomerList = [...groomerList].sort(groomerSortFn);
+  groomerListBase = [...groomerListBase].sort((a, b) => {
+    if (groomerSort === "visits") return b.completed.length - a.completed.length;
+    if (groomerSort === "rating")
+      return (parseFloat(b.avgRating ?? "0") || 0) - (parseFloat(a.avgRating ?? "0") || 0);
+    if (groomerSort === "name") return a.g.name.localeCompare(b.g.name);
+    return (b.g.createdAt ?? "").localeCompare(a.g.createdAt ?? "");
+  });
+  const groomerList =
+    groomerFilterRegion === "all"
+      ? groomerListBase
+      : groomerListBase.filter((x) => x.region === groomerFilterRegion);
 
   const filteredBookings = bookings.filter((b) => {
     if (bookingsFilterGroomer !== "all") {
@@ -686,19 +687,39 @@ export default function AdminPage() {
     return true;
   });
 
-  const handleSendSms = (to: string, body: string, bookingId?: string) => {
-    const log = {
-      id: `S${Date.now()}`,
-      to,
-      body,
-      status: "sent" as const,
-      createdAt: new Date().toISOString(),
-      bookingId,
-    };
-    addSmsLog(log);
-    setSmsLog(getSmsLog());
-    setSmsSendTo("");
-    setSmsSendBody("");
+  /** 알리고(/api/sms) 설정 시 실제 발송, 실패 시 안내 */
+  const handleSendSms = async (to: string, body: string, bookingId?: string): Promise<boolean> => {
+    try {
+      const res = await fetch("/api/sms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to, body }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(typeof data.error === "string" ? data.error : "SMS 발송 실패");
+      }
+      const log = {
+        id: `S${Date.now()}`,
+        to,
+        body,
+        status: "sent" as const,
+        createdAt: new Date().toISOString(),
+        bookingId,
+      };
+      addSmsLog(log);
+      setSmsLog(getSmsLog());
+      setSmsSendTo("");
+      setSmsSendBody("");
+      alert(typeof data.message === "string" ? data.message : "문자가 발송되었습니다.");
+      return true;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      alert(
+        `문자 발송 실패: ${msg}\n\nVercel·로컬 .env에 ALIGO_USER_ID, ALIGO_API_KEY, ALIGO_SENDER를 설정하거나, 테스트용 SKIP_SMS_SEND=1 을 확인하세요.`
+      );
+      return false;
+    }
   };
 
   const handleSendSmsBulk = (recipients: { key: string; phone: string; name: string }[], useTemplate?: boolean) => {
@@ -1149,6 +1170,14 @@ export default function AdminPage() {
                         <option value="name">이름순</option>
                         <option value="recent">등록일순</option>
                       </select>
+                      <button
+                        type="button"
+                        onClick={() => downloadGroomerExcelByRegion(groomerListBase)}
+                        className="px-3 py-2 rounded-lg border border-green-200 bg-green-50 text-green-800 text-sm font-medium hover:bg-green-100"
+                        title="지역(부문)별로 시트가 나뉜 엑셀을 저장합니다. 상단 필터(지역 선택 제외)가 반영됩니다."
+                      >
+                        📥 부문별 엑셀
+                      </button>
                     </div>
                   </div>
                   {groomerList.length > 0 ? (
@@ -1172,6 +1201,7 @@ export default function AdminPage() {
                             <th className="text-center py-2 px-2">비밀번호</th>
                             <th className="text-center py-2 px-2">상태</th>
                             <th className="text-center py-2 px-2">예약정지</th>
+                            <th className="text-center py-2 px-2">삭제</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1237,6 +1267,27 @@ export default function AdminPage() {
                                     }`}
                                   >
                                     {g.suspended ? "재개" : "정지"}
+                                  </button>
+                                </td>
+                                <td className="py-2 px-2 text-center" onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    type="button"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      if (!confirm(`디자이너 "${g.name}"을(를) 삭제할까요? 이 작업은 되돌릴 수 없습니다.`)) return;
+                                      const ok = await deleteGroomer(g.id);
+                                      if (ok) {
+                                        setGroomersRefresh((r) => r + 1);
+                                        void getGroomerProfiles().then(setGroomers);
+                                        void getBookings().then(setBookings);
+                                        alert("삭제되었습니다.");
+                                      } else {
+                                        alert("삭제에 실패했습니다.");
+                                      }
+                                    }}
+                                    className="px-2 py-1 rounded text-xs font-medium bg-red-600 text-white hover:bg-red-700"
+                                  >
+                                    삭제
                                   </button>
                                 </td>
                               </tr>
@@ -1310,12 +1361,10 @@ export default function AdminPage() {
                           className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm mb-2"
                         />
                         <button
-                          onClick={() => {
+                          onClick={async () => {
                             if (!groomerSmsBody.trim()) return;
-                            handleSendSms(groomerDetailModal.g.phone!, groomerSmsBody);
-                            setSmsLog(getSmsLog());
-                            setGroomerSmsBody("");
-                            alert("문자가 발송되었습니다.");
+                            const ok = await handleSendSms(groomerDetailModal.g.phone!, groomerSmsBody);
+                            if (ok) setGroomerSmsBody("");
                           }}
                           disabled={!groomerSmsBody.trim()}
                           className="px-4 py-2 bg-mimi-orange text-white rounded-lg text-sm font-medium hover:bg-mimi-orange/90 disabled:opacity-50"
@@ -1478,6 +1527,38 @@ ${loginUrl}
                         </div>
                       </div>
                     </div>
+                    {groomerPwDeliver.phone && (
+                      <div className="mb-4 p-3 rounded-xl bg-blue-50 border border-blue-200">
+                        <p className="text-xs text-blue-900 mb-1 font-medium">SMS 자동 발송 (알리고 연동 시)</p>
+                        <p className="text-xs text-blue-800/90 mb-3 leading-relaxed">
+                          예전에는 &quot;발송 기록&quot;만 저장되고 <strong>실제 문자는 나가지 않았습니다</strong>. 이제{" "}
+                          <code className="text-[10px] bg-white/80 px-1 rounded">/api/sms</code> 로 알리고에 요청합니다.
+                          Vercel에 <code className="text-[10px] bg-white/80 px-1 rounded">ALIGO_USER_ID</code>,{" "}
+                          <code className="text-[10px] bg-white/80 px-1 rounded">ALIGO_API_KEY</code>,{" "}
+                          <code className="text-[10px] bg-white/80 px-1 rounded">ALIGO_SENDER</code> 를 넣어 주세요.
+                        </p>
+                        <button
+                          type="button"
+                          disabled={groomerPwSmsLoading}
+                          onClick={async () => {
+                            const phone = groomerPwDeliver.phone;
+                            if (!phone) return;
+                            setGroomerPwSmsLoading(true);
+                            try {
+                              const origin = typeof window !== "undefined" ? window.location.origin : "";
+                              const loginUrl = origin ? `${origin}/groomer` : "/groomer";
+                              const body = `[미미살롱] ${groomerPwDeliver.name} 디자이너님\n\n대시보드: ${loginUrl}\n\n비밀번호: ${groomerPwDeliver.password}\n\n※ 본인이 아니면 관리자에게 연락 주세요.`;
+                              await handleSendSms(phone, body);
+                            } finally {
+                              setGroomerPwSmsLoading(false);
+                            }
+                          }}
+                          className="w-full py-3 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-60"
+                        >
+                          {groomerPwSmsLoading ? "발송 중..." : "등록 번호로 비밀번호 안내 문자 보내기"}
+                        </button>
+                      </div>
+                    )}
                     <button
                       type="button"
                       onClick={() => setGroomerPwDeliver(null)}
@@ -1587,6 +1668,14 @@ ${loginUrl}
                       <option value="amount">총이용금액순</option>
                       <option value="name">이름순</option>
                     </select>
+                    <button
+                      type="button"
+                      onClick={() => downloadCustomerExcelByRegion(customerListBase)}
+                      className="px-3 py-2 rounded-lg border border-green-200 bg-green-50 text-green-800 text-sm font-medium hover:bg-green-100"
+                      title="지역(부문)별로 시트가 나뉜 엑셀을 저장합니다. 이용횟수·검색 필터는 반영되며, 지역 드롭다운은 전체 지역으로 펼칩니다."
+                    >
+                      📥 부문별 엑셀
+                    </button>
                   </div>
                   {customerList.length > 0 ? (
                     <div className="overflow-x-auto border rounded-lg">
@@ -1626,6 +1715,7 @@ ${loginUrl}
                             <th className="text-left py-2 px-2">서비스</th>
                             <th className="text-right py-2 px-2">포인트</th>
                             <th className="text-center py-2 px-2 w-16">문자</th>
+                            <th className="text-center py-2 px-2 w-16">삭제</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1690,6 +1780,31 @@ ${loginUrl}
                                     className="text-xs px-2 py-1 rounded bg-green-100 text-green-800 hover:bg-green-200"
                                   >
                                     발송
+                                  </button>
+                                ) : (
+                                  <span className="text-gray-400">-</span>
+                                )}
+                              </td>
+                              <td className="py-2 px-2 text-center">
+                                {c.key !== "unknown" ? (
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      if (
+                                        !confirm(
+                                          `고객 "${c.name || c.phone || c.email || c.key}"의 예약 기록·포인트·저장 프로필을 삭제합니다. 계속할까요?`
+                                        )
+                                      )
+                                        return;
+                                      const n = await deleteBookingsForCustomerKey(c.key);
+                                      removeCustomerPoints(c.phone || c.key, c.email);
+                                      deleteCustomerProfileStorage(c.phone, c.email);
+                                      void getBookings().then(setBookings);
+                                      alert(`처리 완료: 예약 ${n}건 삭제`);
+                                    }}
+                                    className="text-xs px-2 py-1 rounded bg-red-100 text-red-800 hover:bg-red-200"
+                                  >
+                                    삭제
                                   </button>
                                 ) : (
                                   <span className="text-gray-400">-</span>
@@ -1816,7 +1931,10 @@ ${loginUrl}
                       className="flex-1 min-w-[200px] px-4 py-2 rounded-lg border border-gray-200"
                     />
                     <button
-                      onClick={() => smsSendTo && smsSendBody && handleSendSms(smsSendTo, smsSendBody)}
+                      onClick={() => {
+                        if (!smsSendTo.trim() || !smsSendBody.trim()) return;
+                        void handleSendSms(smsSendTo, smsSendBody);
+                      }}
                       disabled={!smsSendTo.trim() || !smsSendBody.trim()}
                       className="px-6 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50"
                     >
@@ -2013,7 +2131,8 @@ ${loginUrl}
                             {b.settlementStatus === "settled" && <p className="text-xs text-blue-600">정산완료</p>}
                             {phone && (
                               <button
-                                onClick={() => handleSendSms(phone, filled, b.id)}
+                                type="button"
+                                onClick={() => void handleSendSms(phone, filled, b.id)}
                                 className="mt-2 block w-full px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700"
                               >
                                 문자 발송

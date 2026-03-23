@@ -6,67 +6,67 @@ import { useRouter, usePathname } from "next/navigation";
 const ADMIN_AUTH_KEY = "mimi_admin_authenticated";
 
 /**
- * 관리자 인증 상태를 확인하고 인증되지 않은 경우 로그인 페이지로 리디렉션합니다.
- * 강화된 인증 체크 버전
+ * /admin/* 인증 (쿠키 + sessionStorage 보조)
+ * - /admin/login 은 검사하지 않음 (깜빡임·전체 새로고침 루프 방지)
+ * - pathname 전환 시마다 다시 검사 (로그인 → /admin 이동 포함)
  */
 export default function AdminAuthCheck({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [isChecking, setIsChecking] = useState(true);
-  
+  const [isChecking, setIsChecking] = useState(() => pathname !== "/admin/login");
+
   useEffect(() => {
-    // 로그인 페이지는 검사하지 않음
     if (pathname === "/admin/login") {
       setIsChecking(false);
       return;
     }
-    
+
+    let cancelled = false;
+
     const checkAuth = async () => {
+      setIsChecking(true);
       try {
-        // 1. 세션 스토리지에서 직접 인증 상태 확인 (클라이언트 측 인증)
         const isAuthenticated = sessionStorage.getItem(ADMIN_AUTH_KEY) === "1";
-        
         if (isAuthenticated) {
-          // 인증된 경우 컨텐츠 표시
-          setIsChecking(false);
           return;
         }
-        
-        // 2. 서버 API를 통한 인증 확인 (백업 체크)
-        try {
-          const response = await fetch("/api/admin-auth/me", { 
-            credentials: "include",
-            headers: {
-              "Cache-Control": "no-cache",
-              "Pragma": "no-cache"
-            }
-          });
-          const data = await response.json();
-          
-          if (data?.ok) {
-            // 서버 인증이 유효하면 세션 스토리지에 저장하고 컨텐츠 표시
-            sessionStorage.setItem(ADMIN_AUTH_KEY, "1");
-            setIsChecking(false);
-            return;
-          }
-        } catch (error) {
-          console.error("서버 인증 확인 중 오류:", error);
+
+        const response = await fetch("/api/admin-auth/me", {
+          credentials: "include",
+          headers: {
+            "Cache-Control": "no-cache",
+            Pragma: "no-cache",
+          },
+        });
+        const data = await response.json();
+
+        if (cancelled) return;
+
+        if (data?.ok) {
+          sessionStorage.setItem(ADMIN_AUTH_KEY, "1");
+          return;
         }
-        
-        // 인증되지 않은 경우 로그인 페이지로 리디렉션
-        console.log("관리자 인증 실패, 로그인 페이지로 리디렉션");
-        window.location.href = "/admin/login";
-      } catch (error) {
-        console.error("인증 확인 중 오류:", error);
-        // 오류 발생 시 안전하게 로그인 페이지로 리디렉션
-        window.location.href = "/admin/login";
+
+        sessionStorage.removeItem(ADMIN_AUTH_KEY);
+        router.replace("/admin/login");
+      } catch {
+        if (!cancelled) {
+          router.replace("/admin/login");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsChecking(false);
+        }
       }
     };
-    
-    checkAuth();
-  }, [pathname]);
-  
-  // 인증 확인 중이면 로딩 표시
+
+    void checkAuth();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname, router]);
+
   if (isChecking && pathname !== "/admin/login") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-mimi-cream">
@@ -74,6 +74,6 @@ export default function AdminAuthCheck({ children }: { children: React.ReactNode
       </div>
     );
   }
-  
+
   return <>{children}</>;
 }

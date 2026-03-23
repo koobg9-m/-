@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 
 const Header = dynamic(() => import("@/components/layout/Header"), { ssr: false });
 const Footer = dynamic(() => import("@/components/layout/Footer"), { ssr: false });
@@ -13,20 +14,45 @@ const ADMIN_AUTH_KEY = "mimi_admin_authenticated";
  * 로그인 문제 해결을 위한 수정 버전
  */
 export default function AdminLoginPage() {
+  const router = useRouter();
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isReady, setIsReady] = useState(false);
+  /** 쿠키까지 확인한 뒤에만 /admin 으로 보냄 — sessionStorage만 믿고 리다이렉트하면 깜빡임·루프 발생 */
+  const [redirecting, setRedirecting] = useState(false);
 
-  // 페이지 로드 시 초기화
   useEffect(() => {
-    setIsReady(true);
-    
-    // 이미 인증된 경우 자동 리디렉션
-    if (sessionStorage.getItem(ADMIN_AUTH_KEY) === "1") {
-      window.location.href = "/admin";
-    }
-  }, []);
+    let cancelled = false;
+
+    const run = async () => {
+      if (typeof window === "undefined") return;
+      if (sessionStorage.getItem(ADMIN_AUTH_KEY) !== "1") return;
+
+      setRedirecting(true);
+      try {
+        const res = await fetch("/api/admin-auth/me", {
+          credentials: "include",
+          headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (data?.ok) {
+          router.replace("/admin");
+          return;
+        }
+        sessionStorage.removeItem(ADMIN_AUTH_KEY);
+      } catch {
+        if (!cancelled) sessionStorage.removeItem(ADMIN_AUTH_KEY);
+      } finally {
+        if (!cancelled) setRedirecting(false);
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   // 로그인 폼 제출 처리
   const handleSubmit = async (e: React.FormEvent) => {
@@ -51,9 +77,8 @@ export default function AdminLoginPage() {
       const data = await res.json().catch(() => ({}));
       
       if (res.ok) {
-        // 로그인 성공
         sessionStorage.setItem(ADMIN_AUTH_KEY, "1");
-        window.location.href = "/admin";
+        router.replace("/admin");
         return;
       }
       
@@ -69,12 +94,12 @@ export default function AdminLoginPage() {
     }
   };
 
-  if (!isReady) {
+  if (redirecting) {
     return (
       <div className="min-h-screen flex flex-col bg-mimi-cream">
         <Header />
         <main className="flex-1 flex items-center justify-center py-16">
-          <p className="text-gray-500">불러오는 중...</p>
+          <p className="text-gray-500">관리자 페이지로 이동 중...</p>
         </main>
         <Footer />
       </div>

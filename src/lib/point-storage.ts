@@ -168,6 +168,29 @@ export function setCustomerPoints(phone: string | undefined, email: string | und
   saveCustomerPointsMap(map);
 }
 
+/** 관리자: 고객 포인트·이력에서 해당 고객 키 제거 */
+export function removeCustomerPoints(phone: string | undefined, email: string | undefined): void {
+  const key = customerKey(phone, email);
+  if (!key || key === "unknown") return;
+  const map = getCustomerPointsMap();
+  if (map[key]) {
+    delete map[key];
+    saveCustomerPointsMap(map);
+  }
+  if (typeof window === "undefined") return;
+  try {
+    const raw = localStorage.getItem(POINT_HISTORY_KEY);
+    const list: { key: string }[] = raw ? JSON.parse(raw) : [];
+    const filtered = list.filter((h) => h.key !== key);
+    if (filtered.length !== list.length) {
+      localStorage.setItem(POINT_HISTORY_KEY, JSON.stringify(filtered));
+      void saveData(POINT_HISTORY_KEY, filtered);
+    }
+  } catch {
+    // ignore
+  }
+}
+
 type PointHistoryItem = { key: string; amount: number; type: "earn" | "use"; reason: string; bookingId?: string; createdAt: string };
 
 function addPointHistory(key: string, amount: number, type: "earn" | "use", reason: string, bookingId?: string): void {

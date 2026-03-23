@@ -55,6 +55,18 @@ export function getCustomerProfileSync(): CustomerProfile | null {
   return getFromLocal(CUSTOMER_KEY_PREFIX);
 }
 
+/** 관리자: 해당 연락처로 저장된 고객 프로필 로컬 키 제거 */
+export function deleteCustomerProfileStorage(phone?: string, email?: string): void {
+  if (typeof window === "undefined") return;
+  const key = getCustomerKey(phone, email);
+  if (key === CUSTOMER_KEY_PREFIX) return;
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
+}
+
 export async function saveCustomerProfile(profile: CustomerProfile): Promise<boolean> {
   if (typeof window === "undefined") return false;
   try {

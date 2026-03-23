@@ -172,3 +172,35 @@ export async function updateBooking(bookingId: string, updates: Partial<Booking>
     return false;
   }
 }
+
+/** 예약에서 고객 식별 키 (관리자 고객 목록과 동일 규칙) */
+export function bookingCustomerKey(b: Booking): string {
+  return (b.customerPhone ?? "").trim() || (b.customerEmail ?? "").trim() || "unknown";
+}
+
+/** 관리자: 디자이너 프로필 삭제 */
+export async function deleteGroomer(id: string): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  try {
+    const list = await getGroomerProfiles();
+    const next = list.filter((p) => String(p.id ?? "") !== String(id));
+    if (next.length === list.length) return false;
+    localStorage.setItem(GROOMER_KEY, JSON.stringify(next));
+    await saveData(GROOMER_KEY, next);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** 관리자: 해당 고객 키(전화 또는 이메일 문자열)와 일치하는 예약을 모두 삭제 */
+export async function deleteBookingsForCustomerKey(customerKey: string): Promise<number> {
+  if (typeof window === "undefined" || !customerKey || customerKey === "unknown") return 0;
+  const list = await getBookings();
+  const filtered = list.filter((b) => bookingCustomerKey(b) !== customerKey);
+  const removed = list.length - filtered.length;
+  if (removed === 0) return 0;
+  localStorage.setItem(BOOKING_KEY, JSON.stringify(filtered));
+  await saveData(BOOKING_KEY, filtered);
+  return removed;
+}

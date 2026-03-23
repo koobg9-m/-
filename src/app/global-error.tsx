@@ -11,8 +11,8 @@ export default function GlobalError({
   const isDev = typeof process !== "undefined" && process.env?.NODE_ENV === "development";
 
   return (
-    <html lang="ko">
-      <body>
+    <html lang="ko" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <div style={{
           minHeight: "100vh",
           display: "flex",

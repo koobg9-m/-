@@ -57,6 +57,44 @@ npm run start
 - Node 버전: **18 이상** 권장 (`node -v`).
 - 프로젝트 루트에서 명령을 실행했는지 확인 (`package.json` 있는 폴더).
 
+## 6. Windows: `UNKNOWN: unknown error, open '.next\...\layout.js'` (errno -4094) → Internal Server Error
+
+터미널에 위와 비슷한 메시지가 반복되면, **코드 오류가 아니라 PC가 `.next` 안 파일을 못 여는 경우**가 많습니다.
+
+1. **Windows 보안(백신) 실시간 검사 제외**  
+   프로젝트 폴더 `mimisalon` 전체를 **제외 목록**에 넣어 보세요. (특히 `.next` 가 자주 다시 쓰입니다.)
+
+2. **OneDrive / 클라우드 동기화**  
+   바탕화면·문서가 **OneDrive에 동기화**되면 `.next` 파일이 잠겨 같은 증상이 납니다.  
+   - 가능하면 프로젝트를 **`C:\dev\mimisalon`** 처럼 **동기화 안 되는 경로**로 옮기거나,  
+   - 해당 폴더만 동기화에서 제외하세요.
+
+3. **개발 서버 하나만**  
+   `npm run dev`가 **중복 실행**되지 않게 하고, 다른 터미널에서 같은 프로젝트를 켜지 마세요.
+
+4. **다시 깨끗이**  
+   ```bash
+   npm run dev:fresh
+   ```
+
+5. **Turbo로 우회 (Webpack 대신)**  
+   ```bash
+   npm run dev:turbo
+   ```  
+   그다음 `http://localhost:5006` 으로 접속해 보세요.
+
+## 7. `missing required error components, refreshing...` (개발 화면)
+
+보통 **개발 서버 번들/캐시가 꼬였을 때** 또는 **Turbopack(`--turbo`)과 오버레이** 조합에서 나올 수 있습니다.
+
+1. **`npm run clean` 후 일반 dev** (Turbo 없이)  
+   ```bash
+   npm run clean
+   npm run dev
+   ```
+2. 그래도 같으면 **`npm run dev:turbo` 대신** 위처럼 **`npm run dev`만** 사용해 보세요.
+3. 프로젝트에 **`src/app/not-found.tsx`** 가 있어야 App Router가 404/경계를 안정적으로 처리합니다. (저장소에 포함됨)
+
 ---
 
 문제가 계속되면 **터미널에 나온 전체 에러 메시지**를 복사해 두면 원인 파악이 빠릅니다.

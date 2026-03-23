@@ -112,22 +112,26 @@ export default function AddressSearchInput({ value, onChange, placeholder = "주
 
   return (
     <>
-      <div className={`flex flex-col sm:flex-row gap-2 min-w-0 max-w-full ${className}`}>
+      {/*
+        모바일: 주소 검색 버튼을 위에 두어( order ) 키보드·스크롤로 아래로 밀린 버튼이 안 보이는 문제 완화
+        sm+: 입력 | 버튼 한 줄 (기존과 동일)
+      */}
+      <div className={`flex flex-col sm:flex-row sm:items-stretch gap-2 min-w-0 max-w-full ${className}`}>
+        <button
+          type="button"
+          onClick={openPostcode}
+          className="order-1 sm:order-2 w-full sm:w-auto sm:shrink-0 px-4 sm:px-5 py-3 min-h-[48px] text-base bg-mimi-orange text-white rounded-xl font-semibold hover:bg-mimi-orange/90 whitespace-nowrap shadow-sm"
+        >
+          우편번호 · 주소 검색
+        </button>
         <input
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className={`w-full min-w-0 flex-1 px-3 sm:px-4 py-3 min-h-[44px] text-base rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none ${inputClassName}`}
+          className={`order-2 sm:order-1 w-full min-w-0 flex-1 px-3 sm:px-4 py-3 min-h-[44px] text-base rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none ${inputClassName}`}
           autoComplete="street-address"
         />
-        <button
-          type="button"
-          onClick={openPostcode}
-          className="w-full sm:w-auto shrink-0 px-4 sm:px-5 py-3 min-h-[44px] text-base bg-mimi-orange text-white rounded-xl font-medium hover:bg-mimi-orange/90 whitespace-nowrap"
-        >
-          주소 검색
-        </button>
       </div>
       {mounted && typeof document !== "undefined" && layer ? createPortal(layer, document.body) : null}
     </>

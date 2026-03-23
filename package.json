@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "cross-env CHOKIDAR_USEPOLLING=true WATCHPACK_POLLING=true node --max-old-space-size=4096 node_modules/next/dist/bin/next dev -p 5006",
     "dev:simple": "node --max-old-space-size=4096 node_modules/next/dist/bin/next dev -p 5006",
+    "dev:turbo": "cross-env CHOKIDAR_USEPOLLING=true WATCHPACK_POLLING=true node --max-old-space-size=4096 node_modules/next/dist/bin/next dev -p 5006 --turbo",
     "dev:auto": "npx concurrently -n dev,push -c blue,yellow \"npm run dev\" \"npm run watch:push\"",
     "dev:restart": "powershell -ExecutionPolicy Bypass -File ./scripts/dev-restart.ps1",
     "dev:restart:unix": "node -e \"try{require('child_process').execSync('npx --yes kill-port 5006',{stdio:'inherit'})}catch(e){}\" && npm run dev",
