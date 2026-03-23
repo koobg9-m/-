@@ -13,6 +13,22 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
   const router = useRouter();
   const pathname = usePathname();
 
+  const syncCustomerAuthToLocalStorage = (next: { phone?: string; email?: string } | null) => {
+    try {
+      if (!next || (!next.phone && !next.email)) {
+        localStorage.removeItem("mimi_demo_user");
+        return;
+      }
+      // 기존 고객 정보가 남아있어서 예약 화면이 과거 주소를 보여주는 문제를 막기 위함
+      localStorage.setItem(
+        "mimi_demo_user",
+        JSON.stringify({ phone: next.phone, email: next.email })
+      );
+    } catch {
+      // ignore
+    }
+  };
+
   useEffect(() => {
     if (SKIP_CUSTOMER_AUTH) {
       setUser({ phone: "local" });
@@ -26,6 +42,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
           const parsed = JSON.parse(stored);
           if (parsed?.phone || parsed?.email) {
             setUser({ phone: parsed.phone, email: parsed.email });
+            syncCustomerAuthToLocalStorage({ phone: parsed.phone, email: parsed.email });
             return;
           }
         }
@@ -34,7 +51,9 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
           const { data } = await createClient().auth.getSession();
           const session = data?.session;
           if (session?.user?.email) {
-            setUser({ email: session.user.email });
+            const email = session.user.email;
+            setUser({ email });
+            syncCustomerAuthToLocalStorage({ email });
             return;
           }
         }
@@ -42,6 +61,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
         // ignore
       }
       setUser(null);
+      syncCustomerAuthToLocalStorage(null);
     };
     checkAuth().finally(() => setReady(true));
   }, []);

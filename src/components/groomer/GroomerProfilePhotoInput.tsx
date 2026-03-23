@@ -37,7 +37,9 @@ export default function GroomerProfilePhotoInput({
         return;
       }
       try {
-        const url = await compressImageFileToJpegDataUrl(file);
+        // 업로드 데이터 용량이 커서 Supabase 저장이 실패하는 케이스를 줄이기 위해
+        // 기본보다 더 공격적으로 리사이즈/압축합니다.
+        const url = await compressImageFileToJpegDataUrl(file, { maxEdge: 260, quality: 0.72 });
         onChange(url);
       } catch {
         // eslint-disable-next-line no-alert

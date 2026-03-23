@@ -118,7 +118,13 @@ export default function GroomerSetupForm() {
       accountNumber: (an ?? "").trim() || undefined,
       accountHolder: (ah ?? "").trim() || undefined,
     };
-    await saveGroomerProfile(profile);
+    const ok = await saveGroomerProfile(profile);
+    if (!ok) {
+      // saveData가 413/statement timeout 등으로 실패했을 수 있습니다.
+      // 사용자 입장에서 원인 파악이 가능하도록 메시지를 남깁니다.
+      alert("저장에 실패했습니다. (사진 용량이 크거나 네트워크/DB 오류일 수 있습니다.) 사진을 더 작은 용량으로 다시 선택해 주세요.");
+      return;
+    }
     localStorage.setItem(MY_GROOMER_KEY, id);
     alert("신청이 완료되었습니다. 관리자가 비밀번호를 부여하면 서비스 개시됩니다.");
     window.location.href = "/groomer";
