@@ -3,6 +3,7 @@
 import type { GroomerProfile, Booking, ServiceItem } from "./groomer-types";
 import { SERVICE_DEFS, getServicePrice } from "./services";
 import { fetchData, saveData } from "./data-sync";
+import { isSupabaseConfigured } from "./supabase/client";
 
 const GROOMER_KEY = "mimi_groomer_profiles";
 const BOOKING_KEY = "mimi_bookings";
@@ -107,13 +108,15 @@ export async function saveGroomerProfile(profile: GroomerProfile): Promise<boole
       const next = list.map((p) => (String(p.id ?? "") === targetId ? toSave : p));
       const deduped = dedupeById(next);
       localStorage.setItem(GROOMER_KEY, JSON.stringify(deduped)); // 로컬 즉시 반영
-      await saveData(GROOMER_KEY, deduped); // Supabase 동기화
+      const ok = await saveData(GROOMER_KEY, deduped); // Supabase 동기화
+      if (!ok && isSupabaseConfigured()) return false;
       return true;
     } else {
       const next = [...list, toSave];
       const deduped = dedupeById(next);
       localStorage.setItem(GROOMER_KEY, JSON.stringify(deduped)); // 로컬 즉시 반영
-      await saveData(GROOMER_KEY, deduped); // Supabase 동기화
+      const ok = await saveData(GROOMER_KEY, deduped); // Supabase 동기화
+      if (!ok && isSupabaseConfigured()) return false;
       return true;
     }
   } catch (e) {

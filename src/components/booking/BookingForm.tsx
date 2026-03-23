@@ -89,7 +89,20 @@ export default function BookingForm() {
       setCustomerHydrating(true);
       try {
         await Promise.all([hydrateServicesFromRemote(), hydratePointsFromRemote()]);
-        const [gList, prof] = await Promise.all([getGroomerProfiles(), getCustomerProfile()]);
+        // 로그인 직후 이전 고객 데이터가 잠깐 보이는 문제를 줄이기 위해
+        // localStorage의 로그인 키로 "현재 고객 프로필"을 명시적으로 다시 로드합니다.
+        let loginData: { phone?: string; email?: string } = {};
+        try {
+          const raw = localStorage.getItem("mimi_demo_user");
+          loginData = raw ? JSON.parse(raw) : {};
+        } catch {
+          // ignore
+        }
+        setCustomer(null);
+        const [gList, prof] = await Promise.all([
+          getGroomerProfiles(),
+          getCustomerProfile(loginData.phone, loginData.email),
+        ]);
         setGroomers(gList);
         setCustomer(prof);
         const serviceParam = searchParams.get("service");
@@ -390,7 +403,11 @@ export default function BookingForm() {
               {profileError}
             </div>
           )}
-          <CustomerProfileForm onComplete={handleProfileComplete} initialData={customer} />
+          <CustomerProfileForm
+            key={(customer?.phone ?? customer?.email ?? "no-customer") + "-profile"}
+            onComplete={handleProfileComplete}
+            initialData={customer}
+          />
         </div>
       )}
 

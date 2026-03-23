@@ -39,8 +39,19 @@ export default function GroomerProfilePhotoInput({
       try {
         // 업로드 데이터 용량이 커서 Supabase 저장이 실패하는 케이스를 줄이기 위해
         // 기본보다 더 공격적으로 리사이즈/압축합니다.
-        const url = await compressImageFileToJpegDataUrl(file, { maxEdge: 260, quality: 0.72 });
-        onChange(url);
+        const url1 = await compressImageFileToJpegDataUrl(file, { maxEdge: 220, quality: 0.65 });
+        // dataUrl 길이 기반 대략적인 용량 추정 (더 정확한 bytes 계산은 불필요)
+        // 3MB 전후를 넘으면 /api/data 저장이 실패할 확률이 올라갑니다.
+        if (url1.length > 4_000_000) {
+          const url2 = await compressImageFileToJpegDataUrl(file, { maxEdge: 170, quality: 0.55 });
+          if (url2.length > 4_000_000) {
+            alert("사진 용량이 너무 커서 저장에 실패할 수 있습니다. 더 작은 사진으로 다시 선택해 주세요.");
+            return;
+          }
+          onChange(url2);
+          return;
+        }
+        onChange(url1);
       } catch {
         // eslint-disable-next-line no-alert
         alert("사진을 처리하지 못했습니다. 다른 파일을 선택해 주세요.");
