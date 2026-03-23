@@ -2,12 +2,11 @@
 
 // 관리자 페이지는 화면 구조가 바뀔 때 캐시가 남으면 혼동이 생겨 강제 동적 렌더링
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 import { useState, useEffect, startTransition } from "react";
 import { useRouter } from "next/navigation";
 import AdminMenu from "@/components/admin/AdminMenu";
-import dynamic from "next/dynamic";
+import nextDynamic from "next/dynamic";
 import Link from "next/link";
 import { getBookings, getBookingsSync, getGroomerProfiles, updateGroomer, updateBooking, deleteGroomer, deleteBookingsForCustomerKey } from "@/lib/groomer-storage";
 import { SERVICE_DEFS, getServicePrices, saveServicePrices, getServicePricesLegacy, getAdditionalFees, saveAdditionalFees, DEFAULT_ADDITIONAL_FEES, DEFAULT_PRICE_TABLE, hydrateServicesFromRemote, type BreedType, type WeightTier, type AdditionalFeeItem } from "@/lib/services";
@@ -30,8 +29,8 @@ import AdminHomepageEditor from "@/components/admin/AdminHomepageEditor";
 import AdminLocalBackupCard from "@/components/admin/AdminLocalBackupCard";
 import StarRating from "@/components/common/StarRating";
 
-const Header = dynamic(() => import("@/components/layout/Header"), { ssr: false });
-const Footer = dynamic(() => import("@/components/layout/Footer"), { ssr: false });
+const Header = nextDynamic(() => import("@/components/layout/Header"), { ssr: false });
+const Footer = nextDynamic(() => import("@/components/layout/Footer"), { ssr: false });
 
 const ADMIN_AUTH_KEY = "mimi_admin_authenticated";
 
