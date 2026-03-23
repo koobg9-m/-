@@ -1306,7 +1306,21 @@ export default function AdminPage() {
                                 onClick={() => setGroomerDetailModal({ g, completed: completed.length, avgRating, reviews: reviews.length })}
                                 className={`border-b border-gray-100 hover:bg-mimi-cream cursor-pointer ${g.suspended ? "bg-red-50/30" : ""}`}
                               >
-                                <td className="py-2 px-2 font-medium">{g.name}</td>
+                                <td className="py-2 px-2 font-medium">
+                                  {g.photoUrl ? (
+                                    <span className="inline-flex items-center gap-2">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img
+                                        src={g.photoUrl}
+                                        alt={`${g.name} 프로필 사진`}
+                                        className="w-8 h-8 rounded-full object-cover border border-gray-100"
+                                      />
+                                      <span>{g.name}</span>
+                                    </span>
+                                  ) : (
+                                    g.name
+                                  )}
+                                </td>
                                 <td className="py-2 px-2 text-gray-600">{g.createdAt ? new Date(g.createdAt).toLocaleDateString("ko-KR") : "-"}</td>
                                 <td className="py-2 px-2">{g.phone || "-"}</td>
                                 <td className="py-2 px-2">{g.birthDate || "-"}</td>
