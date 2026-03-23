@@ -65,6 +65,7 @@ function MypageContent() {
     if (t === "profile" || t === "bookings") setTab(t);
   }, []);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [photoModal, setPhotoModal] = useState<null | { url: string; title: string }>(null);
 
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
 
@@ -306,20 +307,40 @@ function MypageContent() {
                                 <div key={`b-${i}`} className="shrink-0">
                                   <p className="text-xs text-gray-500 mb-1">미용 전</p>
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img src={url} alt={`미용 전 ${i + 1}`} className="w-20 h-20 object-cover rounded-lg border" />
+                                      <img
+                                        src={url}
+                                        alt={`미용 전 ${i + 1}`}
+                                        className="w-20 h-20 object-cover rounded-lg border cursor-pointer hover:opacity-90"
+                                        onClick={() => setPhotoModal({ url, title: `미용 전 ${i + 1}` })}
+                                        role="button"
+                                        tabIndex={0}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter" || e.key === " ") setPhotoModal({ url, title: `미용 전 ${i + 1}` });
+                                        }}
+                                      />
                                 </div>
                               ))}
                               {(b.afterPhotos ?? []).map((url, i) => (
                                 <div key={`a-${i}`} className="shrink-0">
                                   <p className="text-xs text-gray-500 mb-1">미용 후</p>
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img src={url} alt={`미용 후 ${i + 1}`} className="w-20 h-20 object-cover rounded-lg border" />
+                                      <img
+                                        src={url}
+                                        alt={`미용 후 ${i + 1}`}
+                                        className="w-20 h-20 object-cover rounded-lg border cursor-pointer hover:opacity-90"
+                                        onClick={() => setPhotoModal({ url, title: `미용 후 ${i + 1}` })}
+                                        role="button"
+                                        tabIndex={0}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter" || e.key === " ") setPhotoModal({ url, title: `미용 후 ${i + 1}` });
+                                        }}
+                                      />
                                 </div>
                               ))}
                             </div>
                           </div>
                         )}
-                        {b.reviewRating != null ? (
+                        {b.reviewRating != null && b.reviewRating >= 1 ? (
                           <div>
                             <p className="text-xs text-gray-500 mb-1">⭐ 이용후기</p>
                             <StarRating value={b.reviewRating} readonly size="sm" />
@@ -338,6 +359,35 @@ function MypageContent() {
           </div>
         </div>
       </main>
+      {photoModal && (
+        <div
+          className="fixed inset-0 z-[1200] bg-black/60 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="사진 확대"
+          onClick={() => setPhotoModal(null)}
+        >
+          <div
+            className="max-w-[92vw] max-h-[86vh] bg-transparent"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center text-white/90 mb-2 text-sm font-medium">{photoModal.title}</div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={photoModal.url}
+              alt={photoModal.title}
+              className="max-w-[92vw] max-h-[78vh] object-contain rounded-lg border border-white/20 bg-black/10"
+            />
+            <button
+              type="button"
+              onClick={() => setPhotoModal(null)}
+              className="mt-3 w-full py-2 rounded-lg bg-white/10 text-white text-sm font-medium hover:bg-white/15"
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
       <Footer />
     </div>
   );

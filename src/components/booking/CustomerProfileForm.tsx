@@ -165,7 +165,7 @@ export default function CustomerProfileForm({ onComplete, initialData, submitLab
         </div>
       </div>
 
-      <div className="space-y-3 sm:space-y-4">
+      <div className="space-y-3 sm:space-y-4 -mx-1 px-1 sm:mx-0 sm:px-0 max-w-[100vw] sm:max-w-none overflow-x-hidden">
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
           <h3 className="font-bold text-gray-800 text-base sm:text-lg leading-snug pr-1">
             반려동물 <span className="font-normal text-gray-600 text-sm">(여러 마리 등록 가능)</span>
@@ -173,14 +173,14 @@ export default function CustomerProfileForm({ onComplete, initialData, submitLab
           <button
             type="button"
             onClick={() => { setEditingPet(null); setShowPetForm(true); }}
-            className="text-sm py-2.5 px-4 bg-mimi-orange/20 text-mimi-orange rounded-lg hover:bg-mimi-orange/30 w-full sm:w-auto text-center shrink-0"
+            className="text-base py-3.5 min-h-[48px] px-4 bg-mimi-orange/20 text-mimi-orange rounded-xl hover:bg-mimi-orange/30 w-full sm:w-auto text-center shrink-0 font-medium touch-manipulation active:opacity-90"
           >
             + 반려동물 추가
           </button>
         </div>
 
         {pets.map((pet) => (
-          <div key={pet.id} className="p-3 sm:p-4 bg-gray-50 rounded-xl min-w-0">
+          <div key={pet.id} className="p-4 sm:p-4 bg-gray-50 rounded-2xl min-w-0 border border-gray-100/80">
             {editingPet?.id === pet.id ? (
               <PetForm
                 key={pet.id}
@@ -210,9 +210,9 @@ export default function CustomerProfileForm({ onComplete, initialData, submitLab
                   {pet.isAggressive && <p className="text-xs text-red-600">⚠️ 사나움 주의</p>}
                   {pet.notes && <p className="text-xs text-gray-500 break-words">{pet.notes}</p>}
                 </div>
-                <div className="flex gap-3 justify-center sm:justify-end sm:flex-col sm:gap-1 shrink-0 pt-1 sm:pt-0 border-t border-gray-200/80 sm:border-0 mt-1 sm:mt-0">
-                  <button type="button" onClick={() => setEditingPet(pet)} className="text-sm text-mimi-orange hover:underline py-1">수정</button>
-                  <button type="button" onClick={() => removePet(pet.id)} className="text-sm text-red-500 hover:underline py-1">삭제</button>
+                <div className="flex gap-2 justify-stretch sm:justify-end sm:flex-col sm:gap-1 shrink-0 pt-2 sm:pt-0 border-t border-gray-200/80 sm:border-0 mt-2 sm:mt-0 w-full sm:w-auto">
+                  <button type="button" onClick={() => setEditingPet(pet)} className="flex-1 sm:flex-none text-base text-mimi-orange font-medium py-3 min-h-[48px] rounded-xl bg-white border border-mimi-orange/30 touch-manipulation">수정</button>
+                  <button type="button" onClick={() => removePet(pet.id)} className="flex-1 sm:flex-none text-base text-red-600 font-medium py-3 min-h-[48px] rounded-xl bg-white border border-red-200 touch-manipulation">삭제</button>
                 </div>
               </div>
             )}
@@ -343,76 +343,133 @@ function PetForm({ pet, onSave, onCancel }: PetFormProps) {
     }
   };
 
+  const field =
+    "w-full min-w-0 px-3 sm:px-4 py-3 min-h-[48px] rounded-xl border-2 border-gray-200 text-base leading-normal focus:border-mimi-orange focus:outline-none bg-white";
+  const fieldLabel = "block text-sm font-medium text-gray-700 mb-1.5";
+  const selectField = `${field} appearance-none bg-[length:1.25rem] bg-[right_0.65rem_center] bg-no-repeat pr-10`;
+
   return (
-    <div className="space-y-3 p-3 sm:p-4 bg-white rounded-xl border-2 border-mimi-orange/30 w-full max-w-full min-w-0">
-      <h4 className="font-medium text-gray-800 text-base">{pet ? "반려동물 수정" : "반려동물 추가"}</h4>
-      <div className="flex flex-col md:flex-row gap-4 min-w-0">
-        <div className="shrink-0 flex flex-col items-center md:items-start">
-          <label className="block text-xs text-gray-600 mb-1">사진</label>
-          <input type="file" accept="image/*" onChange={handlePhotoChange} className="text-sm max-w-full" />
+    <div className="space-y-4 p-4 sm:p-5 bg-white rounded-2xl border-2 border-mimi-orange/35 w-full max-w-full min-w-0 shadow-sm pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <h4 className="font-semibold text-gray-900 text-lg leading-tight">{pet ? "반려동물 수정" : "반려동물 추가"}</h4>
+      <div className="flex flex-col gap-5 min-w-0">
+        <div className="shrink-0 w-full max-w-full">
+          <span className={fieldLabel}>사진</span>
+          <label className="flex flex-col items-center justify-center w-full min-h-[52px] px-4 py-3.5 rounded-xl border-2 border-dashed border-mimi-orange/40 bg-mimi-orange/[0.06] text-mimi-orange text-base font-medium cursor-pointer touch-manipulation active:scale-[0.99] transition-transform">
+            <span>📷 사진 선택</span>
+            <span className="text-xs font-normal text-gray-500 mt-0.5">갤러리에서 선택</span>
+            <input type="file" accept="image/*" className="sr-only" onChange={handlePhotoChange} />
+          </label>
           {photoUrl && (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={photoUrl} alt="" className="mt-1 w-16 h-16 rounded-full object-cover" />
+            <div className="mt-3 flex justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={photoUrl} alt="" className="w-24 h-24 sm:w-20 sm:h-20 rounded-full object-cover ring-2 ring-mimi-orange/20" />
+            </div>
           )}
         </div>
-        <div className="flex-1 min-w-0 space-y-2">
+        <div className="flex-1 min-w-0 space-y-3 sm:space-y-3.5">
           <div className="min-w-0">
-            <label className="block text-xs text-gray-600">이름 *</label>
+            <label className={fieldLabel}>이름 *</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="이름"
-              className="w-full min-w-0 px-3 py-2.5 min-h-[44px] rounded-lg border border-gray-200 text-base"
+              placeholder="반려동물 이름"
+              className={field}
               required
+              autoComplete="off"
+              enterKeyHint="next"
             />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <div className="min-w-0">
-              <label className="block text-xs text-gray-600">종류</label>
-              <span className="inline-block w-full sm:w-auto text-center px-3 py-2.5 rounded-lg border border-gray-200 text-sm bg-gray-50">강아지</span>
+              <span className={fieldLabel}>종류</span>
+              <div className="w-full text-center px-4 py-3 min-h-[48px] flex items-center justify-center rounded-xl border-2 border-gray-200 bg-stone-50 text-base text-gray-800 font-medium">
+                강아지
+              </div>
             </div>
             <div className="min-w-0">
-              <label className="block text-xs text-gray-600">품종</label>
-              <select value={breed} onChange={(e) => setBreed(e.target.value)} className="w-full min-w-0 max-w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-gray-200 text-base">
-                <option value="">선택</option>
+              <label className={fieldLabel} htmlFor={pet ? `pet-breed-${pet.id}` : "pet-breed-new"}>품종</label>
+              <select
+                id={pet ? `pet-breed-${pet.id}` : "pet-breed-new"}
+                value={breed}
+                onChange={(e) => setBreed(e.target.value)}
+                className={selectField}
+                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")` }}
+              >
+                <option value="">품종 선택</option>
                 {breedOptions.map((b) => (
                   <option key={b} value={b}>{b}</option>
                 ))}
               </select>
             </div>
             {breed === "기타" && (
-              <div className="min-w-0 sm:col-span-2">
-                <label className="block text-xs text-gray-600">품종 직접입력</label>
-                <input type="text" value={breedCustom} onChange={(e) => setBreedCustom(e.target.value)} placeholder="품종 입력" className="w-full min-w-0 px-3 py-2.5 min-h-[44px] rounded-lg border border-gray-200 text-base" />
+              <div className="min-w-0 md:col-span-2">
+                <label className={fieldLabel}>품종 직접입력</label>
+                <input type="text" value={breedCustom} onChange={(e) => setBreedCustom(e.target.value)} placeholder="품종 입력" className={field} />
               </div>
             )}
             <div className="min-w-0">
-              <label className="block text-xs text-gray-600">견종 (요금표)</label>
-              <select value={breedType} onChange={(e) => { const v = e.target.value as BreedType; setBreedType(v); if (v === "소형견" && ["11kg미만", "13kg미만"].includes(weightTier)) setWeightTier("9kg미만"); }} className="w-full min-w-0 max-w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-gray-200 text-base">
+              <label className={fieldLabel}>견종 (요금표)</label>
+              <select
+                value={breedType}
+                onChange={(e) => {
+                  const v = e.target.value as BreedType;
+                  setBreedType(v);
+                  if (v === "소형견" && ["11kg미만", "13kg미만"].includes(weightTier)) setWeightTier("9kg미만");
+                }}
+                className={selectField}
+                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")` }}
+              >
                 {BREED_TYPES.map((b) => (
                   <option key={b.value} value={b.value}>{b.label}</option>
                 ))}
               </select>
             </div>
             <div className="min-w-0">
-              <label className="block text-xs text-gray-600">체중(kg)</label>
-              <input type="number" step="0.1" min="0" max="20" value={weightKg} onChange={(e) => { const v = e.target.value; setWeightKg(v); if (v) setWeightTier(weightToTier(parseFloat(v), breedType)); }} placeholder="예: 4.2" className="w-full min-w-0 px-3 py-2.5 min-h-[44px] rounded-lg border border-gray-200 text-base" inputMode="decimal" />
+              <label className={fieldLabel}>체중(kg)</label>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                max="20"
+                value={weightKg}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setWeightKg(v);
+                  if (v) setWeightTier(weightToTier(parseFloat(v), breedType));
+                }}
+                placeholder="예: 4.2"
+                className={field}
+                inputMode="decimal"
+              />
             </div>
-            <div className="min-w-0 sm:col-span-2">
-              <label className="block text-xs text-gray-600">체중 구간 (요금표)</label>
-              <select value={weightTier} onChange={(e) => { setWeightTier(e.target.value as WeightTier); setWeightKg(""); }} className="w-full min-w-0 max-w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-gray-200 text-base">
+            <div className="min-w-0 md:col-span-2">
+              <label className={fieldLabel}>체중 구간 (요금표)</label>
+              <select
+                value={weightTier}
+                onChange={(e) => {
+                  setWeightTier(e.target.value as WeightTier);
+                  setWeightKg("");
+                }}
+                className={selectField}
+                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")` }}
+              >
                 {weightTierOptions.map((t) => (
                   <option key={t} value={t}>{t}</option>
                 ))}
               </select>
-              <p className="text-xs text-gray-500 mt-0.5">체중 입력 시 자동 적용 · 요금 산정 기준</p>
+              <p className="text-xs text-gray-500 mt-1.5 leading-snug">체중 입력 시 자동 적용 · 요금 산정 기준</p>
             </div>
           </div>
           <div className="min-w-0">
-            <label className="block text-xs text-gray-600">선호 서비스</label>
-            <select value={preferredServiceId} onChange={(e) => setPreferredServiceId(e.target.value)} className="w-full min-w-0 px-3 py-2.5 min-h-[44px] rounded-lg border border-gray-200 text-base mt-1">
-              <option value="">선택 (해당 서비스로 예약 시 자동 이동)</option>
+            <label className={fieldLabel}>선호 서비스</label>
+            <select
+              value={preferredServiceId}
+              onChange={(e) => setPreferredServiceId(e.target.value)}
+              className={`${selectField} mt-0`}
+              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")` }}
+            >
+              <option value="">선택 (예약 시 해당 서비스로 안내)</option>
               {SERVICE_DEFS.filter((s) => (s.forBreed as readonly BreedType[]).includes(breedType)).map((s) => {
                 const price = getServicePrice(s.id, breedType, weightTier);
                 return (
@@ -421,21 +478,31 @@ function PetForm({ pet, onSave, onCancel }: PetFormProps) {
               })}
             </select>
             {preferredServiceId && (
-              <p className="text-xs text-mimi-orange mt-1">예상 요금: {getServicePrice(preferredServiceId, breedType, weightTier).toLocaleString()}원 (견종·체중 기준)</p>
+              <p className="text-sm text-mimi-orange mt-2 font-medium">예상 요금: {getServicePrice(preferredServiceId, breedType, weightTier).toLocaleString()}원 (견종·체중 기준)</p>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-3">
             <div className="min-w-0">
-              <label className="block text-xs text-gray-600">출생년도</label>
-              <select value={birthYear} onChange={(e) => setBirthYear(Number(e.target.value))} className="w-full min-w-0 px-2 sm:px-3 py-2.5 min-h-[44px] rounded-lg border border-gray-200 text-base">
+              <label className={fieldLabel}>출생년도</label>
+              <select
+                value={birthYear}
+                onChange={(e) => setBirthYear(Number(e.target.value))}
+                className={selectField}
+                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")` }}
+              >
                 {years.map((y) => (
                   <option key={y} value={y}>{y}년</option>
                 ))}
               </select>
             </div>
             <div className="min-w-0">
-              <label className="block text-xs text-gray-600">출생월</label>
-              <select value={birthMonth} onChange={(e) => setBirthMonth(Number(e.target.value))} className="w-full min-w-0 px-2 sm:px-3 py-2.5 min-h-[44px] rounded-lg border border-gray-200 text-base">
+              <label className={fieldLabel}>출생월</label>
+              <select
+                value={birthMonth}
+                onChange={(e) => setBirthMonth(Number(e.target.value))}
+                className={selectField}
+                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")` }}
+              >
                 {months.map((m) => (
                   <option key={m} value={m}>{m}월</option>
                 ))}
@@ -443,44 +510,58 @@ function PetForm({ pet, onSave, onCancel }: PetFormProps) {
             </div>
           </div>
           <div className="min-w-0">
-            <label className="block text-xs text-gray-600">지병 여부</label>
+            <label className={fieldLabel}>지병 여부</label>
             <input
               type="text"
               value={healthConditions}
               onChange={(e) => setHealthConditions(e.target.value)}
               placeholder="없음 또는 기재"
-              className="w-full min-w-0 px-3 py-2.5 min-h-[44px] rounded-lg border border-gray-200 text-base"
+              className={field}
+              enterKeyHint="next"
             />
           </div>
-          <label className="flex items-center gap-2 text-base min-h-[44px]">
-            <input type="checkbox" checked={isAggressive} onChange={(e) => setIsAggressive(e.target.checked)} className="h-5 w-5 shrink-0" />
-            <span>사나움 주의</span>
+          <label className="flex items-center gap-3 text-base min-h-[52px] py-1 pl-0.5 touch-manipulation cursor-pointer">
+            <input type="checkbox" checked={isAggressive} onChange={(e) => setIsAggressive(e.target.checked)} className="h-6 w-6 rounded border-gray-300 text-mimi-orange focus:ring-mimi-orange shrink-0" />
+            <span className="font-medium text-gray-800">사나움 주의</span>
           </label>
           <div className="min-w-0">
-            <label className="block text-xs text-gray-600">서비스별 추가요청</label>
+            <label className={fieldLabel}>서비스별 추가요청</label>
             <input
               type="text"
               value={serviceNotes}
               onChange={(e) => setServiceNotes(e.target.value)}
               placeholder="예: 털 많이 잘라주세요, 특정 스타일 원함"
-              className="w-full min-w-0 px-3 py-2.5 min-h-[44px] rounded-lg border border-gray-200 text-base"
+              className={field}
+              enterKeyHint="next"
             />
           </div>
           <div className="min-w-0">
-            <label className="block text-xs text-gray-600">기타 특이사항</label>
+            <label className={fieldLabel}>기타 특이사항</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="알레르기, 약 복용 중 등"
-              rows={2}
-              className="w-full min-w-0 px-3 py-2.5 rounded-lg border border-gray-200 text-base resize-none"
+              rows={4}
+              className={`${field} min-h-[7.5rem] py-3 resize-none leading-relaxed`}
             />
           </div>
         </div>
       </div>
-      <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-1">
-        <button type="button" onClick={onCancel} className="w-full sm:w-auto px-4 py-3 min-h-[44px] text-gray-600 rounded-lg text-base border border-gray-200">취소</button>
-        <button type="button" onClick={handleSave} className="w-full sm:w-auto px-4 py-3 min-h-[44px] bg-mimi-orange text-white rounded-lg text-base font-medium">저장</button>
+      <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end pt-2 border-t border-stone-100">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="w-full sm:w-auto sm:min-w-[120px] px-4 py-3.5 min-h-[52px] text-gray-700 rounded-xl text-base font-medium border-2 border-gray-200 bg-white touch-manipulation active:bg-gray-50"
+        >
+          취소
+        </button>
+        <button
+          type="button"
+          onClick={handleSave}
+          className="w-full sm:w-auto sm:min-w-[120px] px-4 py-3.5 min-h-[52px] bg-mimi-orange text-white rounded-xl text-base font-semibold touch-manipulation active:opacity-95 shadow-sm"
+        >
+          저장
+        </button>
       </div>
     </div>
   );

@@ -112,13 +112,8 @@ export default function AdminLoginPage() {
       <main className="flex-1 flex items-center justify-center py-16">
         <div className="w-full max-w-sm card p-6">
           <h2 className="text-xl font-bold text-gray-800 mb-2">관리자 로그인</h2>
-          <p className="text-sm text-gray-600 mb-4">관리자 비밀번호를 입력하세요.</p>
-          
-          <div className="text-xs text-amber-600 mb-3 p-2 bg-amber-50 rounded-lg">
-            <p className="font-medium">관리자 로그인 안내:</p>
-            <p>관리자 페이지 접근을 위해 비밀번호를 입력해주세요.</p>
-          </div>
-          
+          <p className="text-sm text-gray-600 mb-4">비밀번호를 입력하세요.</p>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <input
               type="password"

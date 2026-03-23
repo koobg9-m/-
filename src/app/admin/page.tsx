@@ -1,11 +1,15 @@
 "use client";
 
+// 관리자 페이지는 화면 구조가 바뀔 때 캐시가 남으면 혼동이 생겨 강제 동적 렌더링
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { useState, useEffect, startTransition } from "react";
 import { useRouter } from "next/navigation";
 import AdminMenu from "@/components/admin/AdminMenu";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { getBookings, getGroomerProfiles, updateGroomer, updateBooking, deleteGroomer, deleteBookingsForCustomerKey } from "@/lib/groomer-storage";
+import { getBookings, getBookingsSync, getGroomerProfiles, updateGroomer, updateBooking, deleteGroomer, deleteBookingsForCustomerKey } from "@/lib/groomer-storage";
 import { SERVICE_DEFS, getServicePrices, saveServicePrices, getServicePricesLegacy, getAdditionalFees, saveAdditionalFees, DEFAULT_ADDITIONAL_FEES, DEFAULT_PRICE_TABLE, hydrateServicesFromRemote, type BreedType, type WeightTier, type AdditionalFeeItem } from "@/lib/services";
 import { hashPassword, verifyPassword } from "@/lib/auth-utils";
 import { clearAdminAuthCookie, hasAdminAuthCookie } from "@/lib/admin-auth-cookie";
@@ -72,6 +76,22 @@ function formatPets(b: Booking): string {
     return b.pets.map((p) => `${p.name} (${p.species})`).join(", ");
   }
   return `${b.petName} (${b.petType})`;
+}
+
+/** INP: 다음 페인트까지 양보 (이벤트 핸들러가 UI 갱신을 장시간 막는 현상 완화) */
+function yieldToMain(): Promise<void> {
+  return new Promise((resolve) => {
+    const sch = typeof globalThis !== "undefined" ? (globalThis as { scheduler?: { yield?: () => Promise<void> } }).scheduler : undefined;
+    if (sch?.yield) {
+      void sch.yield().then(() => resolve());
+    } else {
+      setTimeout(resolve, 0);
+    }
+  });
+}
+
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
 }
 
 /** CSS 바 차트 (max값 대비 비율) */
@@ -153,8 +173,13 @@ export default function AdminPage() {
   const [customerFilterVisit, setCustomerFilterVisit] = useState<string>("all");
   const [customerSort, setCustomerSort] = useState<"visits" | "recent" | "amount" | "name">("visits");
   const [customerSearch, setCustomerSearch] = useState("");
+  /** 고객 리스트에서 「상세」 클릭 시 예약·연락처 전체 표시 */
+  const [customerDetailModalKey, setCustomerDetailModalKey] = useState<string | null>(null);
   const [selectedCustomerKeys, setSelectedCustomerKeys] = useState<Set<string>>(new Set());
   const [smsBulkTemplateId, setSmsBulkTemplateId] = useState<string>("");
+  const [smsBulkLoading, setSmsBulkLoading] = useState(false);
+  /** GET /api/sms — 알리고·SKIP·미설정 여부 (키 값은 노출 안 함) */
+  const [smsApiStatus, setSmsApiStatus] = useState<{ mode: "aligo" | "skip" | "none"; ready: boolean } | null>(null);
   const [groomerPwModal, setGroomerPwModal] = useState<{ id: string; name: string; phone?: string } | null>(null);
   /** 비밀번호 설정 직후 디자이너에게 전달용 (복사·문자) */
   const [groomerPwDeliver, setGroomerPwDeliver] = useState<{ name: string; password: string; phone?: string } | null>(null);
@@ -267,13 +292,26 @@ export default function AdminPage() {
   /** 미용 추천 리마인더: 관리자 페이지 로드 시 1주일 전 자동 발송 대상 확인 */
   useEffect(() => {
     // 이미 AdminAuthCheck에서 인증 확인이 완료된 상태이므로 바로 실행
-    checkAndSendGroomingReminders().then(({ sent }) => {
-      if (sent > 0) {
-        getBookings().then(setBookings);
-        setSmsLog(getSmsLog());
-      }
-    }).catch(() => {});
+    checkAndSendGroomingReminders()
+      .then(({ sent, failedSend }) => {
+        if (sent > 0 || failedSend > 0) {
+          void getBookings().then(setBookings);
+          setSmsLog(getSmsLog());
+        }
+      })
+      .catch(() => {});
   }, []);
+
+  /** 문자 API 연동 상태 (고객관리 탭·문자 섹션 표시용) */
+  useEffect(() => {
+    fetch("/api/sms")
+      .then((r) => r.json())
+      .then((d: { mode?: string; ready?: boolean }) => {
+        const mode = d.mode === "aligo" || d.mode === "skip" || d.mode === "none" ? d.mode : "none";
+        setSmsApiStatus({ mode, ready: !!d.ready });
+      })
+      .catch(() => setSmsApiStatus(null));
+  }, [tab]);
 
   /** 자동 저장: 요금 (1.5초 디바운스) */
   useEffect(() => {
@@ -477,11 +515,23 @@ export default function AdminPage() {
     c.visitCount += 1;
     if (b.status === "completed") c.totalAmount += svcTotal(b);
     if ((b.date ?? "") < c.firstDate) c.firstDate = b.date ?? "";
-    if ((b.date ?? "") > c.lastDate) c.lastDate = b.date ?? "";
+    if ((b.date ?? "") > c.lastDate) {
+      c.lastDate = b.date ?? "";
+      if ((b.address ?? "").trim()) c.address = b.address ?? "";
+      const em = (b.customerEmail ?? "").trim();
+      if (em) c.email = em;
+      const ph = (b.customerPhone ?? b.phone ?? "").trim();
+      if (ph) c.phone = ph;
+      const nm = (b.customerName ?? "").trim();
+      if (nm) c.name = nm;
+    }
     if (c.name === "" && b.customerName) c.name = b.customerName;
     if (petStr && !c.pets.includes(petStr)) c.pets.push(petStr);
     const svc = b.serviceName ?? "";
     if (svc && !c.services.includes(svc)) c.services.push(svc);
+    if (!(c.email ?? "").trim() && (b.customerEmail ?? "").trim()) {
+      c.email = (b.customerEmail ?? "").trim();
+    }
     c.type = c.visitCount >= 6 ? "VIP" : c.visitCount >= 2 ? "재방문" : "신규";
     return acc;
   }, {});
@@ -498,7 +548,9 @@ export default function AdminPage() {
         c.phone.replace(/-/g, "").includes(q.replace(/-/g, "")) ||
         c.email.toLowerCase().includes(q) ||
         c.address.toLowerCase().includes(q) ||
-        c.region.toLowerCase().includes(q)
+        c.region.toLowerCase().includes(q) ||
+        c.pets.some((p) => p.toLowerCase().includes(q)) ||
+        c.services.some((s) => s.toLowerCase().includes(q))
     );
   }
   const sortFn =
@@ -722,31 +774,73 @@ export default function AdminPage() {
     }
   };
 
-  const handleSendSmsBulk = (recipients: { key: string; phone: string; name: string }[], useTemplate?: boolean) => {
-    const template = useTemplate && smsBulkTemplateId
-      ? smsTemplates.find((t) => t.id === smsBulkTemplateId)
-      : null;
+  const handleSendSmsBulk = async (recipients: { key: string; phone: string; name: string }[], useTemplate?: boolean) => {
+    const template = useTemplate && smsBulkTemplateId ? smsTemplates.find((t) => t.id === smsBulkTemplateId) : null;
     const bodyTemplate = template?.body ?? smsSendBody;
     if (!bodyTemplate.trim()) return;
     const withPhone = recipients.filter((r) => r.phone && /^[\d-]+$/.test(r.phone));
-    withPhone.forEach((r) => {
-      const filled = fillTemplate(bodyTemplate, {
-        customerName: r.name || "고객",
-        date: "",
-        time: "",
-        groomerName: "",
-        serviceName: "",
-      });
-      addSmsLog({
-        id: `S${Date.now()}-${r.key}`,
-        to: r.phone,
-        body: filled,
-        status: "sent",
-        createdAt: new Date().toISOString(),
-      });
-    });
-    setSmsLog(getSmsLog());
-    setSelectedCustomerKeys(new Set());
+    if (withPhone.length === 0) return;
+
+    setSmsBulkLoading(true);
+    try {
+      let ok = 0;
+      let fail = 0;
+      for (let i = 0; i < withPhone.length; i++) {
+        const r = withPhone[i];
+        const filled = fillTemplate(bodyTemplate, {
+          customerName: r.name || "고객",
+          date: "",
+          time: "",
+          groomerName: "",
+          serviceName: "",
+        });
+        try {
+          const res = await fetch("/api/sms", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: r.phone, body: filled }),
+          });
+          const data = (await res.json().catch(() => ({}))) as { error?: string };
+          const id = `S${Date.now()}-bulk-${i}-${r.key}`;
+          if (res.ok) {
+            addSmsLog({
+              id,
+              to: r.phone,
+              body: filled,
+              status: "sent",
+              createdAt: new Date().toISOString(),
+            });
+            ok++;
+          } else {
+            addSmsLog({
+              id,
+              to: r.phone,
+              body: filled,
+              status: "failed",
+              error: typeof data.error === "string" ? data.error : `HTTP ${res.status}`,
+              createdAt: new Date().toISOString(),
+            });
+            fail++;
+          }
+        } catch (err) {
+          addSmsLog({
+            id: `S${Date.now()}-bulk-${i}-${r.key}-err`,
+            to: r.phone,
+            body: filled,
+            status: "failed",
+            error: err instanceof Error ? err.message : String(err),
+            createdAt: new Date().toISOString(),
+          });
+          fail++;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 120));
+      }
+      setSmsLog(getSmsLog());
+      setSelectedCustomerKeys(new Set());
+      alert(`발송 결과: 성공 ${ok}건, 실패 ${fail}건`);
+    } finally {
+      setSmsBulkLoading(false);
+    }
   };
 
   // 인증 체크는 AdminAuthCheck 컴포넌트에서 처리하므로 제거
@@ -1195,7 +1289,6 @@ export default function AdminPage() {
                             <th className="text-center py-2 px-2">반경</th>
                             <th className="text-left py-2 px-2 max-w-[80px]">경력</th>
                             <th className="text-center py-2 px-2">계좌</th>
-                            <th className="text-center py-2 px-2">서비스</th>
                             <th className="text-right py-2 px-2">미용</th>
                             <th className="text-center py-2 px-2">별점</th>
                             <th className="text-center py-2 px-2">비밀번호</th>
@@ -1229,7 +1322,6 @@ export default function AdminPage() {
                                     <span className="text-amber-600 text-xs">미등록</span>
                                   )}
                                 </td>
-                                <td className="py-2 px-2 text-center">{g.services?.length ?? 0}개</td>
                                 <td className="py-2 px-2 text-right font-medium">{completed.length}회</td>
                                 <td className="py-2 px-2 text-center">{avgRating ? `⭐ ${avgRating} (${reviews.length})` : "-"}</td>
                                 <td className="py-2 px-2 max-w-[100px]">
@@ -1257,10 +1349,14 @@ export default function AdminPage() {
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      updateGroomer(g.id, { suspended: !g.suspended }).then(() => {
-                                        getBookings().then(setBookings);
-                                        setGroomersRefresh((r) => r + 1);
-                                      });
+                                      void (async () => {
+                                        await yieldToMain();
+                                        await updateGroomer(g.id, { suspended: !g.suspended });
+                                        await nextFrame();
+                                        startTransition(() => {
+                                          setGroomersRefresh((r) => r + 1);
+                                        });
+                                      })();
                                     }}
                                     className={`px-2 py-1 rounded text-xs font-medium ${
                                       g.suspended ? "bg-green-600 text-white hover:bg-green-700" : "bg-red-600 text-white hover:bg-red-700"
@@ -1272,18 +1368,22 @@ export default function AdminPage() {
                                 <td className="py-2 px-2 text-center" onClick={(e) => e.stopPropagation()}>
                                   <button
                                     type="button"
-                                    onClick={async (e) => {
+                                    onClick={(e) => {
                                       e.stopPropagation();
-                                      if (!confirm(`디자이너 "${g.name}"을(를) 삭제할까요? 이 작업은 되돌릴 수 없습니다.`)) return;
-                                      const ok = await deleteGroomer(g.id);
-                                      if (ok) {
-                                        setGroomersRefresh((r) => r + 1);
-                                        void getGroomerProfiles().then(setGroomers);
-                                        void getBookings().then(setBookings);
-                                        alert("삭제되었습니다.");
-                                      } else {
-                                        alert("삭제에 실패했습니다.");
-                                      }
+                                      void (async () => {
+                                        if (!confirm(`디자이너 "${g.name}"을(를) 삭제할까요? 이 작업은 되돌릴 수 없습니다.`)) return;
+                                        await yieldToMain();
+                                        const ok = await deleteGroomer(g.id);
+                                        await nextFrame();
+                                        if (ok) {
+                                          startTransition(() => {
+                                            setGroomersRefresh((r) => r + 1);
+                                          });
+                                          setTimeout(() => alert("삭제되었습니다."), 0);
+                                        } else {
+                                          setTimeout(() => alert("삭제에 실패했습니다."), 0);
+                                        }
+                                      })();
                                     }}
                                     className="px-2 py-1 rounded text-xs font-medium bg-red-600 text-white hover:bg-red-700"
                                   >
@@ -1548,7 +1648,12 @@ ${loginUrl}
                               const origin = typeof window !== "undefined" ? window.location.origin : "";
                               const loginUrl = origin ? `${origin}/groomer` : "/groomer";
                               const body = `[미미살롱] ${groomerPwDeliver.name} 디자이너님\n\n대시보드: ${loginUrl}\n\n비밀번호: ${groomerPwDeliver.password}\n\n※ 본인이 아니면 관리자에게 연락 주세요.`;
-                              await handleSendSms(phone, body);
+                              const ok = await handleSendSms(phone, body);
+                              if (!ok && typeof window !== "undefined") {
+                                // /api/sms 실패해도 최소한 사용자(디자이너)가 문자앱으로 내용을 바로 보낼 수 있게 폴백
+                                const digits = phone.replace(/\D/g, "");
+                                window.location.href = `sms:${digits}?body=${encodeURIComponent(body)}`;
+                              }
                             } finally {
                               setGroomerPwSmsLoading(false);
                             }
@@ -1679,7 +1784,7 @@ ${loginUrl}
                   </div>
                   {customerList.length > 0 ? (
                     <div className="overflow-x-auto border rounded-lg">
-                      <table className="w-full text-sm min-w-[800px]">
+                      <table className="w-full text-sm min-w-[1200px]">
                         <thead className="bg-mimi-cream">
                           <tr className="border-b">
                             <th className="text-center py-2 px-2 w-12">
@@ -1706,26 +1811,34 @@ ${loginUrl}
                             <th className="text-left py-2 px-2">구분</th>
                             <th className="text-left py-2 px-2">이름</th>
                             <th className="text-left py-2 px-2">연락처</th>
+                            <th className="text-left py-2 px-2 min-w-[140px]">이메일</th>
+                            <th className="text-left py-2 px-2 min-w-[180px]">전체 주소</th>
                             <th className="text-left py-2 px-2">지역</th>
                             <th className="text-right py-2 px-2">이용</th>
                             <th className="text-right py-2 px-2">총금액</th>
                             <th className="text-left py-2 px-2">첫방문</th>
                             <th className="text-left py-2 px-2">최근방문</th>
-                            <th className="text-left py-2 px-2">반려동물</th>
-                            <th className="text-left py-2 px-2">서비스</th>
+                            <th className="text-left py-2 px-2 min-w-[140px]">반려동물</th>
+                            <th className="text-left py-2 px-2 min-w-[120px]">서비스</th>
                             <th className="text-right py-2 px-2">포인트</th>
+                            <th className="text-center py-2 px-2 w-20">상세</th>
                             <th className="text-center py-2 px-2 w-16">문자</th>
                             <th className="text-center py-2 px-2 w-16">삭제</th>
                           </tr>
                         </thead>
                         <tbody>
                           {customerList.map((c) => (
-                            <tr key={c.key} className="border-b border-gray-100 hover:bg-mimi-cream">
+                            <tr
+                              key={c.key}
+                              className="border-b border-gray-100 hover:bg-mimi-cream cursor-pointer"
+                              onClick={() => setCustomerDetailModalKey(c.key)}
+                            >
                               <td className="py-2 px-2 text-center">
                                 {(c.phone || (c.key && /^[\d-]+$/.test(c.key))) ? (
                                   <input
                                     type="checkbox"
                                     checked={selectedCustomerKeys.has(c.key)}
+                                    onClick={(e) => e.stopPropagation()}
                                     onChange={(e) => {
                                       if (e.target.checked) {
                                         setSelectedCustomerKeys((prev) => new Set(Array.from(prev).concat(c.key)));
@@ -1753,26 +1866,51 @@ ${loginUrl}
                                 </span>
                               </td>
                               <td className="py-2 px-2 font-medium">{c.name || "-"}</td>
-                              <td className="py-2 px-2">{c.phone || c.email || c.key || "-"}</td>
+                              <td className="py-2 px-2 whitespace-nowrap">{c.phone || "-"}</td>
+                              <td className="py-2 px-2 text-gray-700 break-all max-w-[200px]">{c.email || "-"}</td>
+                              <td className="py-2 px-2 text-gray-700 text-xs break-words max-w-[220px] align-top">
+                                {(c.address ?? "").trim() || "-"}
+                              </td>
                               <td className="py-2 px-2 text-gray-600">{c.region}</td>
                               <td className="py-2 px-2 text-right font-medium">{c.visitCount}회</td>
                               <td className="py-2 px-2 text-right">{c.totalAmount.toLocaleString()}원</td>
                               <td className="py-2 px-2 text-gray-600">{c.firstDate || "-"}</td>
                               <td className="py-2 px-2 text-gray-600">{c.lastDate || "-"}</td>
-                              <td className="py-2 px-2 text-gray-600 max-w-[120px] truncate" title={c.pets.join(", ")}>
-                                {c.pets.length > 0 ? c.pets.join(", ") : "-"}
+                              <td className="py-2 px-2 text-gray-600 align-top text-xs max-w-[200px]">
+                                {c.pets.length > 0 ? (
+                                  <span className="line-clamp-3 md:line-clamp-none whitespace-pre-wrap">{c.pets.join("\n")}</span>
+                                ) : (
+                                  "-"
+                                )}
                               </td>
-                              <td className="py-2 px-2 text-gray-600 max-w-[100px] truncate" title={c.services.join(", ")}>
-                                {c.services.length > 0 ? c.services.join(", ") : "-"}
+                              <td className="py-2 px-2 text-gray-600 align-top text-xs max-w-[180px]">
+                                {c.services.length > 0 ? (
+                                  <span className="line-clamp-3 md:line-clamp-none whitespace-pre-wrap">{c.services.join("\n")}</span>
+                                ) : (
+                                  "-"
+                                )}
                               </td>
                               <td className="py-2 px-2 text-right font-medium text-amber-700">
                                 {getCustomerPoints(c.phone || c.key, c.email)}P
                               </td>
                               <td className="py-2 px-2 text-center">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCustomerDetailModalKey(c.key);
+                                  }}
+                                  className="text-xs px-2 py-1 rounded bg-mimi-orange/15 text-mimi-orange font-medium hover:bg-mimi-orange/25"
+                                >
+                                  상세
+                                </button>
+                              </td>
+                              <td className="py-2 px-2 text-center">
                                 {(c.phone || (c.key && /^[\d-]+$/.test(c.key))) ? (
                                   <button
                                     type="button"
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                      e.stopPropagation();
                                       setSmsSendTo(c.phone || c.key);
                                       const el = document.querySelector('[data-sms-section]');
                                       el?.scrollIntoView({ behavior: "smooth" });
@@ -1789,7 +1927,8 @@ ${loginUrl}
                                 {c.key !== "unknown" ? (
                                   <button
                                     type="button"
-                                    onClick={async () => {
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
                                       if (
                                         !confirm(
                                           `고객 "${c.name || c.phone || c.email || c.key}"의 예약 기록·포인트·저장 프로필을 삭제합니다. 계속할까요?`
@@ -1824,8 +1963,230 @@ ${loginUrl}
                 </div>
               </div>
 
+              {customerDetailModalKey &&
+                (() => {
+                  const dc = customerDetailMap[customerDetailModalKey];
+                  if (!dc) {
+                    return (
+                      <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/50" role="dialog" aria-modal="true">
+                        <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl">
+                          <p className="text-gray-800 mb-4">고객 정보를 찾을 수 없습니다.</p>
+                          <button
+                            type="button"
+                            onClick={() => setCustomerDetailModalKey(null)}
+                            className="w-full py-2 rounded-lg bg-gray-100 font-medium"
+                          >
+                            닫기
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+                  const detailRows = validBookings
+                    .filter((b) => customerKey(b) === customerDetailModalKey)
+                    .sort((a, b) => {
+                      const byDate = (b.date ?? "").localeCompare(a.date ?? "");
+                      if (byDate !== 0) return byDate;
+                      return (b.time ?? "").localeCompare(a.time ?? "");
+                    });
+                  const pts = getCustomerPoints(dc.phone || dc.key, dc.email);
+                  return (
+                    <div
+                      className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/50"
+                      role="dialog"
+                      aria-modal="true"
+                      onClick={() => setCustomerDetailModalKey(null)}
+                    >
+                      <div
+                        className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-xl"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-start gap-4">
+                          <div>
+                            <h3 className="text-xl font-bold text-gray-800">고객 상세</h3>
+                            <p className="text-sm text-gray-500 mt-1">예약·연락처·주소·반려동물 정보를 모두 확인할 수 있습니다.</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setCustomerDetailModalKey(null)}
+                            className="text-gray-500 hover:text-gray-800 text-2xl leading-none px-2"
+                            aria-label="닫기"
+                          >
+                            ×
+                          </button>
+                        </div>
+                        <div className="p-6 space-y-6">
+                          <div className="grid sm:grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-500">구분</span>
+                              <p className="font-medium mt-1">
+                                <span
+                                  className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                                    dc.type === "VIP"
+                                      ? "bg-amber-100 text-amber-800"
+                                      : dc.type === "재방문"
+                                        ? "bg-blue-50 text-blue-800"
+                                        : "bg-gray-100 text-gray-600"
+                                  }`}
+                                >
+                                  {dc.type}
+                                </span>
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">이름</span>
+                              <p className="font-medium mt-1">{dc.name || "-"}</p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">연락처</span>
+                              <p className="font-medium mt-1">{dc.phone || "-"}</p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">이메일</span>
+                              <p className="font-medium mt-1 break-all">{dc.email || "-"}</p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">포인트</span>
+                              <p className="font-medium mt-1 text-amber-700">{pts}P</p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">이용 횟수 / 총 결제액(완료 기준)</span>
+                              <p className="font-medium mt-1">
+                                {dc.visitCount}회 · {dc.totalAmount.toLocaleString()}원
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">첫 방문 / 최근 방문</span>
+                              <p className="font-medium mt-1">
+                                {dc.firstDate || "-"} / {dc.lastDate || "-"}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">지역(시·구)</span>
+                              <p className="font-medium mt-1">{dc.region}</p>
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 text-sm">전체 주소 (최근 예약 기준)</span>
+                            <p className="font-medium mt-2 whitespace-pre-wrap break-words text-gray-900 border rounded-lg p-3 bg-mimi-cream/50">
+                              {(dc.address ?? "").trim() || "미입력"}
+                            </p>
+                          </div>
+                          <div className="grid sm:grid-cols-2 gap-4">
+                            <div>
+                              <span className="text-gray-500 text-sm">반려동물 (예약에 기록된 목록)</span>
+                              <ul className="mt-2 space-y-1 text-sm list-disc list-inside text-gray-800">
+                                {dc.pets.length > 0 ? (
+                                  dc.pets.map((p, i) => <li key={i}>{p}</li>)
+                                ) : (
+                                  <li className="list-none text-gray-500">-</li>
+                                )}
+                              </ul>
+                            </div>
+                            <div>
+                              <span className="text-gray-500 text-sm">이용 서비스 종류</span>
+                              <ul className="mt-2 space-y-1 text-sm list-disc list-inside text-gray-800">
+                                {dc.services.length > 0 ? (
+                                  dc.services.map((s, i) => <li key={i}>{s}</li>)
+                                ) : (
+                                  <li className="list-none text-gray-500">-</li>
+                                )}
+                              </ul>
+                            </div>
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-gray-800 mb-3">예약 내역 ({detailRows.length}건)</h4>
+                            {detailRows.length === 0 ? (
+                              <p className="text-sm text-gray-500">예약이 없습니다.</p>
+                            ) : (
+                              <div className="overflow-x-auto border rounded-lg">
+                                <table className="w-full text-xs sm:text-sm min-w-[720px]">
+                                  <thead className="bg-mimi-cream">
+                                    <tr className="border-b text-left">
+                                      <th className="py-2 px-2">날짜</th>
+                                      <th className="py-2 px-2">시간</th>
+                                      <th className="py-2 px-2">상태</th>
+                                      <th className="py-2 px-2">디자이너</th>
+                                      <th className="py-2 px-2">서비스</th>
+                                      <th className="py-2 px-2 text-right">금액</th>
+                                      <th className="py-2 px-2 min-w-[160px]">방문 주소</th>
+                                      <th className="py-2 px-2 min-w-[120px]">반려동물</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {detailRows.map((b) => (
+                                      <tr key={b.id} className="border-b border-gray-100 align-top">
+                                        <td className="py-2 px-2 whitespace-nowrap">{b.date}</td>
+                                        <td className="py-2 px-2 whitespace-nowrap">{b.time}</td>
+                                        <td className="py-2 px-2">{getStatusLabel(b.status)}</td>
+                                        <td className="py-2 px-2">{b.groomerName ?? "-"}</td>
+                                        <td className="py-2 px-2">{b.serviceName}</td>
+                                        <td className="py-2 px-2 text-right">{svcTotal(b).toLocaleString()}원</td>
+                                        <td className="py-2 px-2 break-words text-gray-700">{b.address || "-"}</td>
+                                        <td className="py-2 px-2 text-gray-700">{formatPets(b)}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-2 pt-2 border-t">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSmsSendTo(dc.phone || dc.key);
+                                setCustomerDetailModalKey(null);
+                                document.querySelector("[data-sms-section]")?.scrollIntoView({ behavior: "smooth" });
+                              }}
+                              className="px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700"
+                            >
+                              문자 발송으로 이동
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCustomerDetailModalKey(null)}
+                              className="px-4 py-2 rounded-lg bg-gray-100 text-gray-800 text-sm font-medium"
+                            >
+                              닫기
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
               <div className="card p-6" data-sms-section>
-                <h3 className="font-bold text-gray-800 mb-4">문자 알림</h3>
+                <h3 className="font-bold text-gray-800 mb-2">문자 알림</h3>
+                {smsApiStatus && (
+                  <div
+                    className={`mb-4 p-3 rounded-lg border text-sm ${
+                      smsApiStatus.mode === "aligo"
+                        ? "bg-green-50 border-green-200 text-green-900"
+                        : smsApiStatus.mode === "skip"
+                          ? "bg-amber-50 border-amber-200 text-amber-900"
+                          : "bg-red-50 border-red-200 text-red-900"
+                    }`}
+                  >
+                    {smsApiStatus.mode === "aligo" && (
+                      <p>
+                        <strong>SMS 연동됨</strong> — 알리고로 실제 발송됩니다. (Vercel 환경변수 ALIGO_USER_ID, ALIGO_API_KEY, ALIGO_SENDER)
+                      </p>
+                    )}
+                    {smsApiStatus.mode === "skip" && (
+                      <p>
+                        <strong>SKIP 모드</strong> — <code className="text-xs bg-white/80 px-1 rounded">SKIP_SMS_SEND=1</code> 이라 API는 성공하지만 실제 문자는 나가지 않습니다. 운영 전에 해당 변수를 제거하세요.
+                      </p>
+                    )}
+                    {smsApiStatus.mode === "none" && (
+                      <p>
+                        <strong>미연동</strong> — 문자 API가 설정되지 않았습니다. Vercel·서버 <code className="text-xs bg-white/80 px-1 rounded">.env</code>에 알리고 값을 넣거나, 테스트용으로{" "}
+                        <code className="text-xs bg-white/80 px-1 rounded">SKIP_SMS_SEND=1</code> 을 설정하세요. (.env.example 참고)
+                      </p>
+                    )}
+                  </div>
+                )}
                 <p className="text-sm text-gray-600 mb-4">변수: {"{customerName}"}, {"{date}"}, {"{time}"}, {"{groomerName}"}, {"{serviceName}"}</p>
                 <div className="space-y-4 mb-6">
                   {smsTemplates.map((t) => (
@@ -1880,32 +2241,48 @@ ${loginUrl}
                       ))}
                     </select>
                     <button
-                      onClick={() => handleSendSmsBulk(
-                        customerList.filter((c) => selectedCustomerKeys.has(c.key)).map((c) => ({
-                          key: c.key,
-                          phone: c.phone || c.key,
-                          name: c.name,
-                        })),
-                        !!smsBulkTemplateId
-                      )}
-                      disabled={selectedCustomerKeys.size === 0 || (!smsBulkTemplateId && !smsSendBody.trim())}
+                      type="button"
+                      onClick={() =>
+                        void handleSendSmsBulk(
+                          customerList.filter((c) => selectedCustomerKeys.has(c.key)).map((c) => ({
+                            key: c.key,
+                            phone: c.phone || c.key,
+                            name: c.name,
+                          })),
+                          !!smsBulkTemplateId
+                        )
+                      }
+                      disabled={
+                        smsBulkLoading ||
+                        selectedCustomerKeys.size === 0 ||
+                        (!smsBulkTemplateId && !smsSendBody.trim())
+                      }
                       className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
                     >
-                      선택 발송 ({selectedCustomerKeys.size}명)
+                      {smsBulkLoading ? "발송 중…" : `선택 발송 (${selectedCustomerKeys.size}명)`}
                     </button>
                     <button
-                      onClick={() => handleSendSmsBulk(
-                        customerList.filter((c) => c.phone && /^[\d-]+$/.test(c.phone)).map((c) => ({
-                          key: c.key,
-                          phone: c.phone || c.key,
-                          name: c.name,
-                        })),
-                        !!smsBulkTemplateId
-                      )}
-                      disabled={customerList.filter((c) => c.phone && /^[\d-]+$/.test(c.phone)).length === 0 || (!smsBulkTemplateId && !smsSendBody.trim())}
+                      type="button"
+                      onClick={() =>
+                        void handleSendSmsBulk(
+                          customerList.filter((c) => c.phone && /^[\d-]+$/.test(c.phone)).map((c) => ({
+                            key: c.key,
+                            phone: c.phone || c.key,
+                            name: c.name,
+                          })),
+                          !!smsBulkTemplateId
+                        )
+                      }
+                      disabled={
+                        smsBulkLoading ||
+                        customerList.filter((c) => c.phone && /^[\d-]+$/.test(c.phone)).length === 0 ||
+                        (!smsBulkTemplateId && !smsSendBody.trim())
+                      }
                       className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
                     >
-                      전체 발송 ({customerList.filter((c) => c.phone && /^[\d-]+$/.test(c.phone)).length}명)
+                      {smsBulkLoading
+                        ? "발송 중…"
+                        : `전체 발송 (${customerList.filter((c) => c.phone && /^[\d-]+$/.test(c.phone)).length}명)`}
                     </button>
                   </div>
                   {!smsBulkTemplateId && (
@@ -1950,12 +2327,13 @@ ${loginUrl}
                     <div className="space-y-2 max-h-48 overflow-y-auto">
                       {smsLog.map((l) => (
                         <div key={l.id} className="flex justify-between items-start p-3 bg-mimi-cream rounded-lg text-sm">
-                          <div>
+                          <div className="min-w-0">
                             <span className="font-medium">{l.to}</span>
                             <p className="text-gray-600 mt-1 line-clamp-2">{l.body}</p>
+                            {l.error ? <p className="text-red-600 text-xs mt-1 break-words">{l.error}</p> : null}
                           </div>
                           <span className={`shrink-0 px-2 py-0.5 rounded text-xs ${l.status === "sent" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                            {l.status === "sent" ? "발송완료" : l.status}
+                            {l.status === "sent" ? "발송완료" : l.status === "failed" ? "실패" : l.status}
                           </span>
                         </div>
                       ))}
@@ -2277,9 +2655,14 @@ ${loginUrl}
                         const toGroomer = calcSettlementAmount(st, commissionRate);
                         const handleSettleOne = async () => {
                           if (!confirm(`정산금액 ${toGroomer.toLocaleString()}원 입금 완료 후 정산완료 처리합니다.`)) return;
-                          await updateBooking(b.id, { settlementStatus: "settled" });
-                          getBookings().then(setBookings);
-                          alert("정산완료 처리되었습니다.");
+                          const ok = await updateBooking(b.id, { settlementStatus: "settled" });
+                          if (ok) {
+                            getBookings().then(setBookings);
+                          } else {
+                            // 서버 업로드가 실패해도 로컬은 이미 반영될 수 있으므로 로컬 기준으로 즉시 갱신
+                            setBookings(getBookingsSync());
+                          }
+                          alert(ok ? "정산완료 처리되었습니다." : "정산완료 처리(로컬)만 반영되었습니다. 서버 업로드를 확인해 주세요.");
                         };
                         return (
                           <div key={b.id} className="flex flex-wrap sm:flex-nowrap justify-between items-center gap-3 p-3 bg-mimi-cream rounded-lg">
@@ -2341,9 +2724,14 @@ ${loginUrl}
                 const hasBankInfo = targetGroomer?.bankName && targetGroomer?.accountNumber && targetGroomer?.accountHolder;
                 const handleSettleAll = async () => {
                   if (!confirm(`총 ${totalToTransfer.toLocaleString()}원을 입금하셨나요?\n\n입금 완료 후 정산완료 처리됩니다.`)) return;
-                  await Promise.all(targetUnsettled.map((b) => updateBooking(b.id, { settlementStatus: "settled" })));
-                  getBookings().then(setBookings);
-                  alert("정산완료 처리되었습니다.");
+                  const results = await Promise.all(targetUnsettled.map((b) => updateBooking(b.id, { settlementStatus: "settled" })));
+                  const allOk = results.every(Boolean);
+                  if (allOk) {
+                    getBookings().then(setBookings);
+                  } else {
+                    setBookings(getBookingsSync());
+                  }
+                  alert(allOk ? "정산완료 처리되었습니다." : "정산완료 처리(일부는 로컬)만 반영되었습니다. 서버 업로드를 확인해 주세요.");
                 };
                 return (
                   <div className="card p-6 border-2 border-mimi-orange/30">

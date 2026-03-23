@@ -6,6 +6,7 @@ import { saveGroomerProfile } from "@/lib/groomer-storage";
 import type { GroomerProfile, AvailableSlot } from "@/lib/groomer-types";
 import { TIME_SLOTS } from "@/lib/services";
 import AddressSearchInput from "@/components/common/AddressSearchInput";
+import GroomerProfilePhotoInput from "@/components/groomer/GroomerProfilePhotoInput";
 
 const Header = dynamic(() => import("@/components/layout/Header"), { ssr: false });
 const Footer = dynamic(() => import("@/components/layout/Footer"), { ssr: false });
@@ -37,10 +38,15 @@ export default function GroomerSetupForm() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  // 저장용: "YYYY-MM-DD"가 유효할 때만 채움
   const [birthDate, setBirthDate] = useState("");
+  // 입력용: 사용자가 타이핑 중일 때 중간값을 허용
+  const [birthDateDraft, setBirthDateDraft] = useState("");
+  const [birthDateError, setBirthDateError] = useState<string | null>(null);
   const [gender, setGender] = useState<"male" | "female" | "">("");
   const [intro, setIntro] = useState("");
   const [career, setCareer] = useState("");
+  const [photoUrl, setPhotoUrl] = useState("");
   const [address, setAddress] = useState("");
   const [radiusKm, setRadiusKm] = useState(10);
   const [slots, setSlots] = useState<AvailableSlot[]>([]);
@@ -49,8 +55,27 @@ export default function GroomerSetupForm() {
   const [accountHolder, setAccountHolder] = useState("");
   const [step, setStep] = useState<"info" | "slots">("info");
 
-  const latestRef = useRef({ name, phone, email, birthDate, gender, intro, career, address, radiusKm, slots, bankName, accountNumber, accountHolder });
-  latestRef.current = { name, phone, email, birthDate, gender, intro, career, address, radiusKm, slots, bankName, accountNumber, accountHolder };
+  const latestRef = useRef({ name, phone, email, birthDate, gender, intro, career, photoUrl, address, radiusKm, slots, bankName, accountNumber, accountHolder });
+  latestRef.current = { name, phone, email, birthDate, gender, intro, career, photoUrl, address, radiusKm, slots, bankName, accountNumber, accountHolder };
+
+  const formatBirthDateDraft = (nextDigits: string): string => {
+    const d = nextDigits.slice(0, 8);
+    if (d.length <= 4) return d;
+    if (d.length <= 6) return `${d.slice(0, 4)}-${d.slice(4)}`;
+    return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}`;
+  };
+
+  const validateAndSetBirthDate = (ymd: string) => {
+    // YYYY-MM-DD 형식 + 유효한 날짜 + 만 18세 이상만 저장
+    const dt = new Date(ymd);
+    if (Number.isNaN(dt.getTime())) return false;
+    // 파싱된 값이 동일한지(예: 2026-02-31 같은 케이스 방지)
+    if (dt.toISOString().slice(0, 10) !== ymd) return false;
+    const max = new Date();
+    max.setFullYear(max.getFullYear() - 18);
+    if (dt.getTime() > max.getTime()) return false;
+    return true;
+  };
 
   const addSlot = (date: string, times: string[]) => {
     if (!date || times.length === 0) return;
@@ -65,7 +90,7 @@ export default function GroomerSetupForm() {
   };
 
   const handleSubmit = async () => {
-    const { name: n, phone: ph, email: em, birthDate: bd, gender: gen, intro: inr, career: car, address: a, radiusKm: r, slots: sl, bankName: bn, accountNumber: an, accountHolder: ah } = latestRef.current;
+    const { name: n, phone: ph, email: em, birthDate: bd, gender: gen, intro: inr, career: car, photoUrl: phUrl, address: a, radiusKm: r, slots: sl, bankName: bn, accountNumber: an, accountHolder: ah } = latestRef.current;
     if (!n.trim() || !a.trim()) return;
     const id = `G${Date.now()}`;
     const addr = a.trim();
@@ -82,6 +107,7 @@ export default function GroomerSetupForm() {
       gender: gen || undefined,
       intro: (inr ?? "").trim() || undefined,
       career: (car ?? "").trim() || undefined,
+      photoUrl: (phUrl ?? "").trim() || undefined,
       address: addr,
       radiusKm: radius,
       area: areaParts,
@@ -155,8 +181,35 @@ export default function GroomerSetupForm() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">생년월일</label>
-                  <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().slice(0, 10)} className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none" />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={birthDateDraft}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "");
+                      const formatted = formatBirthDateDraft(digits);
+                      setBirthDateDraft(formatted);
+                      setBirthDateError(null);
+
+                      if (digits.length !== 8) {
+                        setBirthDate("");
+                        return;
+                      }
+
+                      const ymd = formatted;
+                      const ok = validateAndSetBirthDate(ymd);
+                      if (ok) setBirthDate(ymd);
+                      else {
+                        setBirthDate("");
+                        setBirthDateError("만 18세 이상 생년월일을 YYYY-MM-DD 형식으로 입력해 주세요.");
+                      }
+                    }}
+                    placeholder="YYYY-MM-DD"
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none"
+                    aria-label="생년월일 입력"
+                  />
                   <p className="text-xs text-gray-500 mt-1">만 18세 이상</p>
+                  {birthDateError ? <p className="text-xs text-red-600 mt-1">{birthDateError}</p> : null}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">성별</label>
@@ -175,6 +228,7 @@ export default function GroomerSetupForm() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">경력</label>
                 <textarea value={career} onChange={(e) => setCareer(e.target.value)} placeholder="예: 5년차 반려동물 디자이너, OO미용학원 수료" rows={2} className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none resize-none" />
               </div>
+              <GroomerProfilePhotoInput value={photoUrl} onChange={setPhotoUrl} className="min-w-0 max-w-full" />
               <div className="min-w-0 max-w-full">
                 <label className="block text-sm font-medium text-gray-700 mb-1">자기 주소지</label>
                 <AddressSearchInput value={address} onChange={setAddress} placeholder="주소 검색 버튼을 클릭하여 입력" className="w-full" />

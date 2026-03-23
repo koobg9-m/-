@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { getGroomerProfiles, getGroomerById, saveBooking, getBookingsByCustomer } from "@/lib/groomer-storage";
+import { getGroomerProfiles, getGroomerById, saveBooking, getBookingsByCustomer, getBookings } from "@/lib/groomer-storage";
+import { groomerReviewAvgById } from "@/lib/groomer-review-stats";
+import GroomerBookingPreview from "./GroomerBookingPreview";
 import { getCustomerProfile, saveCustomerProfile, canProceedToBooking } from "@/lib/customer-storage";
 import { matchGroomers, matchGroomersWithGeocode, getAvailableSlots, getAvailableSlotsWithGeocode } from "@/lib/groomer-match";
 import type { GroomerProfile, Booking, CustomerProfile, Pet } from "@/lib/groomer-types";
@@ -43,6 +45,7 @@ export default function BookingForm() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("profile");
   const [customer, setCustomer] = useState<CustomerProfile | null>(null);
+  const [customerHydrating, setCustomerHydrating] = useState(true);
   const [groomers, setGroomers] = useState<GroomerProfile[]>([]);
   const [groomer, setGroomer] = useState<GroomerProfile | null>(null);
   const [matchedGroomers, setMatchedGroomers] = useState<{ groomer: GroomerProfile; service: { id: string; name: string; price: number } }[]>([]);
@@ -61,8 +64,15 @@ export default function BookingForm() {
   const [matchLoading, setMatchLoading] = useState(false);
   const [serviceSelectError, setServiceSelectError] = useState<string | null>(null);
   const [completedCount, setCompletedCount] = useState(0);
+  const [allBookings, setAllBookings] = useState<Booking[]>([]);
 
   const DEFAULT_REGION_CHECK_SERVICE = "bathFace";
+
+  useEffect(() => {
+    getBookings().then(setAllBookings);
+  }, []);
+
+  const groomerReviewStats = useMemo(() => groomerReviewAvgById(allBookings), [allBookings]);
 
   useEffect(() => {
     if (customer?.phone || customer?.email) {
@@ -76,13 +86,20 @@ export default function BookingForm() {
 
   useEffect(() => {
     (async () => {
-      await Promise.all([hydrateServicesFromRemote(), hydratePointsFromRemote()]);
-      const [gList, prof] = await Promise.all([getGroomerProfiles(), getCustomerProfile()]);
-      setGroomers(gList);
-      setCustomer(prof);
-      const serviceParam = searchParams.get("service");
-      if (canProceedToBooking(prof)) {
-        setStep("region");
+      setCustomerHydrating(true);
+      try {
+        await Promise.all([hydrateServicesFromRemote(), hydratePointsFromRemote()]);
+        const [gList, prof] = await Promise.all([getGroomerProfiles(), getCustomerProfile()]);
+        setGroomers(gList);
+        setCustomer(prof);
+        const serviceParam = searchParams.get("service");
+        if (canProceedToBooking(prof)) {
+          setStep("region");
+        } else {
+          setStep("profile");
+        }
+
+        // 서비스 파라미터/선호 서비스 선택은 최대한 채워 둡니다.
         if (serviceParam && SERVICE_DEFS.some((s) => s.id === serviceParam)) {
           setServiceId(serviceParam);
         } else if (prof?.pets?.length) {
@@ -91,8 +108,8 @@ export default function BookingForm() {
             setServiceId(preferred);
           }
         }
-      } else if (serviceParam && SERVICE_DEFS.some((s) => s.id === serviceParam)) {
-        setServiceId(serviceParam);
+      } finally {
+        setCustomerHydrating(false);
       }
     })();
   }, [searchParams]);
@@ -306,6 +323,14 @@ export default function BookingForm() {
 
   const steps: Step[] = ["profile", "region", "datetime", "service", "match", "pet", "terms", "confirm", "payment"];
 
+  if (customerHydrating) {
+    return (
+      <div className="w-full max-w-full min-w-0 py-16 text-center text-gray-600">
+        예약을 준비하는 중입니다...
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-full min-w-0">
       <Link href="/" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-mimi-orange transition-colors mb-4 sm:mb-6">← 홈으로</Link>
@@ -478,18 +503,33 @@ export default function BookingForm() {
               <button onClick={() => setStep("datetime")} className="px-6 py-2 text-mimi-orange hover:underline font-medium">다른 일시 선택</button>
             </div>
           ) : (
-            <div className="space-y-3">
-              {matchedGroomers.map(({ groomer: g, service: svc }) => (
-                <button
-                  key={g.id}
-                  onClick={() => handleGroomerSelect(g)}
-                  className="w-full p-4 rounded-xl border-2 border-gray-200 hover:border-mimi-orange text-left"
-                >
-                  <h3 className="font-bold text-gray-800">{g.name}</h3>
-                  <p className="text-sm text-gray-600">{g.address ?? g.area} · 반경 {g.radiusKm ?? 10}km</p>
-                  <p className="text-sm text-mimi-orange mt-1">{svc.name} · {svc.price.toLocaleString()}원</p>
-                </button>
-              ))}
+            <div className="space-y-4">
+              {matchedGroomers.map(({ groomer: g, service: svc }) => {
+                const rev = groomerReviewStats[g.id];
+                return (
+                  <button
+                    key={g.id}
+                    type="button"
+                    onClick={() => handleGroomerSelect(g)}
+                    className="w-full rounded-2xl border-2 border-gray-200 hover:border-mimi-orange text-left overflow-hidden transition-colors focus:outline-none focus:ring-2 focus:ring-mimi-orange/40"
+                  >
+                    <div className="p-1 sm:p-2">
+                      <GroomerBookingPreview
+                        groomer={g}
+                        avgRating={rev?.avg}
+                        reviewCount={rev?.count}
+                        size="sm"
+                      />
+                    </div>
+                    <div className="px-4 pb-4 pt-1 border-t border-stone-100 bg-stone-50/50">
+                      <p className="text-sm font-semibold text-mimi-orange">
+                        {svc.name} · {svc.price.toLocaleString()}원
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1 line-clamp-2">{g.address ?? g.area} · 반경 {g.radiusKm ?? 10}km</p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
           <button onClick={() => setStep("datetime")} className="text-gray-500 text-sm">← 이전</button>
@@ -499,6 +539,16 @@ export default function BookingForm() {
       {step === "pet" && (
         <div className="space-y-4">
           <p className="text-gray-600">예약할 반려동물을 선택하세요 (여러 마리 함께 선택 가능)</p>
+          {groomer && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700">담당 디자이너</p>
+              <GroomerBookingPreview
+                groomer={groomer}
+                avgRating={groomerReviewStats[groomer.id]?.avg}
+                reviewCount={groomerReviewStats[groomer.id]?.count}
+              />
+            </div>
+          )}
           <div className="space-y-3">
             {customer?.pets?.map((pet) => {
               const isSelected = selectedPets.some((p) => p.id === pet.id);
@@ -629,9 +679,18 @@ export default function BookingForm() {
       {step === "confirm" && (
         <div className="space-y-4">
           <p className="text-gray-600">예약 정보를 확인해 주세요</p>
+          {groomer && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700">디자이너</p>
+              <GroomerBookingPreview
+                groomer={groomer}
+                avgRating={groomerReviewStats[groomer.id]?.avg}
+                reviewCount={groomerReviewStats[groomer.id]?.count}
+              />
+            </div>
+          )}
           <div className="card p-5 space-y-2 bg-gray-50/50">
             <p><span className="text-gray-500">고객</span> {customer?.name} · {customer?.phone}</p>
-            <p><span className="text-gray-500">디자이너</span> {groomer?.name}</p>
             <p><span className="text-gray-500">서비스</span> {SERVICE_DEFS.find((s) => s.id === serviceId)?.name ?? service?.name} · {selectedPets.length}마리 = {basePrice.toLocaleString()}원</p>
             <p><span className="text-gray-500">일시</span> {date && formatDate(date)} {time}</p>
             <p><span className="text-gray-500">반려동물</span> {selectedPets.map((p) => `${p.name} (${p.species})`).join(", ")}</p>
@@ -704,8 +763,18 @@ export default function BookingForm() {
 
       {step === "payment" && (
         <div className="space-y-6">
+          {groomer && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700">디자이너</p>
+              <GroomerBookingPreview
+                groomer={groomer}
+                avgRating={groomerReviewStats[groomer.id]?.avg}
+                reviewCount={groomerReviewStats[groomer.id]?.count}
+                size="sm"
+              />
+            </div>
+          )}
           <div className="card p-5 space-y-2 bg-gray-50/50">
-            <p><span className="text-gray-500">디자이너</span> {groomer?.name}</p>
             <p><span className="text-gray-500">서비스</span> {SERVICE_DEFS.find((s) => s.id === serviceId)?.name ?? service?.name} · {selectedPets.length}마리 = {basePrice.toLocaleString()}원</p>
             {selectedAdditionalItems.length > 0 && (
               <p><span className="text-gray-500">추가사항</span> {selectedAdditionalItems.map((f) => `${f.name} ${getAdditionalFeePrice(f, primaryBreed).toLocaleString()}원`).join(", ")} = {additionalFeesTotal.toLocaleString()}원</p>

@@ -43,11 +43,12 @@ export async function fetchData<T = unknown>(key: string): Promise<T | null> {
   return null;
 }
 
-/** API에 값 저장 (재시도 1회) */
+/** API에 값 저장 (타임아웃·일시 오류 시 재시도) */
 export async function saveData(key: string, value: unknown): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
   const url = getApiUrl(API);
-  for (let attempt = 0; attempt < 2; attempt++) {
+  const maxAttempts = 4;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       const res = await fetch(url, {
         method: "POST",
@@ -56,9 +57,36 @@ export async function saveData(key: string, value: unknown): Promise<boolean> {
         body: JSON.stringify({ key, value }),
       });
       if (res.ok) return true;
-      if (attempt < 1) await new Promise((r) => setTimeout(r, 500));
-    } catch {
-      if (attempt < 1) await new Promise((r) => setTimeout(r, 500));
+      let errCode = "";
+      try {
+        const j = (await res.json()) as { error?: string };
+        errCode = typeof j.error === "string" ? j.error : "";
+      } catch {
+        // ignore
+      }
+      if (res.status === 413 || errCode === "PAYLOAD_TOO_LARGE") {
+        if (typeof console !== "undefined" && console.warn) console.warn("[saveData] payload too large", key);
+        return false;
+      }
+      const retryable =
+        res.status === 503 ||
+        res.status === 408 ||
+        res.status === 429 ||
+        errCode === "STATEMENT_TIMEOUT";
+      if (retryable && attempt < maxAttempts - 1) {
+        const delay = 600 * Math.pow(2, attempt);
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+      if (typeof console !== "undefined" && console.warn) {
+        console.warn("[saveData] failed", key, res.status, errCode);
+      }
+    } catch (e) {
+      if (attempt < maxAttempts - 1) {
+        await new Promise((r) => setTimeout(r, 600 * Math.pow(2, attempt)));
+        continue;
+      }
+      if (typeof console !== "undefined" && console.warn) console.warn("[saveData] failed", key, e);
     }
   }
   return false;

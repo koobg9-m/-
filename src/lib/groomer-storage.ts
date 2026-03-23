@@ -15,6 +15,18 @@ function normalizeList<T>(list: T[], mapper: (p: T) => T): T[] {
   return Array.isArray(list) ? list.map(mapper) : [];
 }
 
+function dedupeById<T extends { id?: unknown }>(list: T[]): T[] {
+  const map = new Map<string, T>();
+  for (const item of list) {
+    const idRaw = item?.id;
+    const id = idRaw == null ? "" : String(idRaw);
+    if (!id) continue;
+    // "마지막 값을 유지" (업데이트 로직 이후에는 toSave가 마지막에 반영되는 형태로 동작)
+    map.set(id, item);
+  }
+  return Array.from(map.values());
+}
+
 /** 기본 서비스 → 디자이너용 서비스 아이템 변환 (표시용 기준가: 소형견 5kg) */
 export function serviceToItem(id: string) {
   const s = SERVICE_DEFS.find((x) => x.id === id);
@@ -66,14 +78,14 @@ export async function getGroomerProfiles(): Promise<GroomerProfile[]> {
   const fromApi = await fetchData<GroomerProfile[]>(GROOMER_KEY);
   const list = fromApi ?? getFromLocal<GroomerProfile[]>(GROOMER_KEY, []);
   if (fromApi != null) localStorage.setItem(GROOMER_KEY, JSON.stringify(fromApi));
-  return normalizeList(list, mapGroomer);
+  return normalizeList(dedupeById(list), mapGroomer);
 }
 
 /** 동기 버전 - localStorage만 (초기 로딩/폴백용) */
 export function getGroomerProfilesSync(): GroomerProfile[] {
   if (typeof window === "undefined") return [];
   const list = getFromLocal<GroomerProfile[]>(GROOMER_KEY, []);
-  return normalizeList(list, mapGroomer);
+  return normalizeList(dedupeById(list), mapGroomer);
 }
 
 export async function saveGroomerProfile(profile: GroomerProfile): Promise<boolean> {
@@ -91,13 +103,19 @@ export async function saveGroomerProfile(profile: GroomerProfile): Promise<boole
     };
     if (idx >= 0) {
       toSave.suspended = list[idx].suspended;
-      list[idx] = toSave;
+      // 동일 id 중복이 이미 존재할 수 있으므로, 전부 toSave로 치환
+      const next = list.map((p) => (String(p.id ?? "") === targetId ? toSave : p));
+      const deduped = dedupeById(next);
+      localStorage.setItem(GROOMER_KEY, JSON.stringify(deduped)); // 로컬 즉시 반영
+      await saveData(GROOMER_KEY, deduped); // Supabase 동기화
+      return true;
     } else {
-      list.push(toSave);
+      const next = [...list, toSave];
+      const deduped = dedupeById(next);
+      localStorage.setItem(GROOMER_KEY, JSON.stringify(deduped)); // 로컬 즉시 반영
+      await saveData(GROOMER_KEY, deduped); // Supabase 동기화
+      return true;
     }
-    localStorage.setItem(GROOMER_KEY, JSON.stringify(list)); // 로컬 즉시 반영
-    await saveData(GROOMER_KEY, list); // Supabase 동기화
-    return true;
   } catch (e) {
     if (typeof console !== "undefined" && console.error) console.error("saveGroomerProfile", e);
     return false;

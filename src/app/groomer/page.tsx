@@ -16,6 +16,7 @@ function formatBookingPets(b: { pets?: { name: string; species: string; healthCo
 }
 import { TIME_SLOTS, hydrateServicesFromRemote } from "@/lib/services";
 import AddressSearchInput from "@/components/common/AddressSearchInput";
+import GroomerProfilePhotoInput from "@/components/groomer/GroomerProfilePhotoInput";
 import StarRating from "@/components/common/StarRating";
 
 const Header = dynamic(() => import("@/components/layout/Header"), { ssr: false });
@@ -166,6 +167,7 @@ export default function GroomerPage() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [showPasswordInput, setShowPasswordInput] = useState(false);
   const [autoLogin, setAutoLogin] = useState(false);
 
   const [loading, setLoading] = useState(true);
@@ -173,6 +175,7 @@ export default function GroomerPage() {
   const [loginPhone, setLoginPhone] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
 
   const loadProfile = async () => {
     const id = localStorage.getItem(MY_GROOMER_KEY);
@@ -251,6 +254,8 @@ export default function GroomerPage() {
   const handleReturningLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError("");
+    // 예기치 않은 기존 인증 상태가 남아있지 않도록 선제 정리
+    sessionStorage.removeItem(GROOMER_AUTH_KEY);
     const phoneNorm = normalizePhone(loginPhone);
     if (!phoneNorm) {
       setLoginError("연락처를 입력해 주세요.");
@@ -260,6 +265,11 @@ export default function GroomerPage() {
     const found = profiles.find((p) => normalizePhone(p.phone ?? "") === phoneNorm);
     if (!found) {
       setLoginError("등록된 디자이너를 찾을 수 없습니다. 연락처를 확인해 주세요.");
+      return;
+    }
+    const foundPhoneNorm = normalizePhone(found.phone ?? "");
+    if (!foundPhoneNorm || foundPhoneNorm !== phoneNorm) {
+      setLoginError("연락처가 일치하지 않아 로그인할 수 없습니다.");
       return;
     }
     if (!found.passwordHash) {
@@ -318,13 +328,33 @@ export default function GroomerPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
-                    <input
-                      type="password"
-                      value={loginPassword}
-                      onChange={(e) => { setLoginPassword(e.target.value); setLoginError(""); }}
-                      placeholder="비밀번호"
-                      className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showLoginPassword ? "text" : "password"}
+                        value={loginPassword}
+                        onChange={(e) => { setLoginPassword(e.target.value); setLoginError(""); }}
+                        placeholder="비밀번호"
+                        className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none pr-12"
+                      />
+                      <button
+                        type="button"
+                        aria-label={showLoginPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
+                        onClick={() => setShowLoginPassword((v) => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      >
+                        {showLoginPassword ? (
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                        ) : (
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
+                            <path d="M3 3l18 18" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
                   {loginError && <p className="text-sm text-red-600">{loginError}</p>}
                   <button type="submit" className="w-full py-3 bg-mimi-orange text-white rounded-xl font-bold">
@@ -378,14 +408,34 @@ export default function GroomerPage() {
           <h2 className="text-xl font-bold text-gray-800 mb-2">디자이너 로그인</h2>
           <p className="text-sm text-gray-600 mb-4">{profile.name}님의 대시보드에 접근하려면 관리자가 부여한 비밀번호를 입력하세요.</p>
           <form onSubmit={handlePasswordSubmit} className="space-y-4">
-            <input
-              type="password"
-              value={passwordInput}
-              onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(""); }}
-              placeholder="비밀번호"
-              className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none"
-              autoFocus
-            />
+            <div className="relative">
+              <input
+                type={showPasswordInput ? "text" : "password"}
+                value={passwordInput}
+                onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(""); }}
+                placeholder="비밀번호"
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none pr-12"
+                autoFocus
+              />
+              <button
+                type="button"
+                aria-label={showPasswordInput ? "비밀번호 숨기기" : "비밀번호 보기"}
+                onClick={() => setShowPasswordInput((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              >
+                {showPasswordInput ? (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
+                    <path d="M3 3l18 18" />
+                  </svg>
+                )}
+              </button>
+            </div>
             {passwordError && <p className="text-sm text-red-600">{passwordError}</p>}
             
             <div className="flex items-center">
@@ -757,6 +807,7 @@ function GroomerSetup({
   });
   const [intro, setIntro] = useState(profile?.intro ?? "");
   const [career, setCareer] = useState(profile?.career ?? "");
+  const [photoUrl, setPhotoUrl] = useState(profile?.photoUrl ?? "");
   const [address, setAddress] = useState(profile?.address ?? profile?.area ?? "");
   const [radiusKm, setRadiusKm] = useState<number>(() => {
     const v = Number(profile?.radiusKm) || 10;
@@ -769,8 +820,8 @@ function GroomerSetup({
   const [step, setStep] = useState<"info" | "slots">(profile ? "slots" : "info");
   const [profileEditTab, setProfileEditTab] = useState<"basic" | "slots">("basic");
 
-  const latestRef = useRef({ name, phone, email, birthDate, gender, intro, career, address, radiusKm, slots, bankName, accountNumber, accountHolder });
-  latestRef.current = { name, phone, email, birthDate, gender, intro, career, address, radiusKm, slots, bankName, accountNumber, accountHolder };
+  const latestRef = useRef({ name, phone, email, birthDate, gender, intro, career, photoUrl, address, radiusKm, slots, bankName, accountNumber, accountHolder });
+  latestRef.current = { name, phone, email, birthDate, gender, intro, career, photoUrl, address, radiusKm, slots, bankName, accountNumber, accountHolder };
 
   const addSlot = (date: string, times: string[]) => {
     if (!date || times.length === 0) return;
@@ -785,7 +836,7 @@ function GroomerSetup({
   };
 
   const handleSubmit = async () => {
-    const { name: n, phone: ph, email: em, birthDate: bd, gender: gen, intro: inr, career: car, address: a, radiusKm: r, slots: sl, bankName: bn, accountNumber: an, accountHolder: ah } = latestRef.current;
+    const { name: n, phone: ph, email: em, birthDate: bd, gender: gen, intro: inr, career: car, photoUrl: phUrl, address: a, radiusKm: r, slots: sl, bankName: bn, accountNumber: an, accountHolder: ah } = latestRef.current;
     const services = buildAllServiceItemsForGroomer();
     if (!n.trim() || !a.trim()) return;
     const id = profile?.id ?? `G${Date.now()}`;
@@ -803,6 +854,7 @@ function GroomerSetup({
       gender: gen || undefined,
       intro: (inr ?? "").trim() || undefined,
       career: (car ?? "").trim() || undefined,
+      photoUrl: (phUrl ?? "").trim() || undefined,
       address: addr,
       radiusKm: radius,
       area: areaParts,
@@ -818,10 +870,11 @@ function GroomerSetup({
   };
 
   const content = (
-    <div className={embedded ? "" : "min-h-screen flex flex-col"}>
+    <div className={embedded ? "w-full min-w-0" : "min-h-screen flex flex-col"}>
       {!embedded && <Header />}
-      <main className="flex-1 p-6">
-        <div className="max-w-lg mx-auto">
+      {/* embedded: 대시보드 main에 이미 p-6 있음 → 이중 패딩 제거·가로 넘침 방지 */}
+      <main className={embedded ? "flex-1 w-full min-w-0 px-0 py-1 sm:py-2" : "flex-1 p-6"}>
+        <div className={embedded ? "w-full min-w-0 max-w-full mx-auto" : "max-w-lg mx-auto"}>
           <h1 className="text-2xl font-bold text-gray-800 mb-6">
             {profile ? "프로필 수정" : "디자이너 등록"}
           </h1>
@@ -904,6 +957,7 @@ function GroomerSetup({
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-mimi-orange outline-none resize-none"
                 />
               </div>
+              <GroomerProfilePhotoInput value={photoUrl} onChange={setPhotoUrl} className="min-w-0 max-w-full" />
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">자기 주소지</label>
                 <AddressSearchInput
@@ -969,14 +1023,16 @@ function GroomerSetup({
                     </button>
                   </div>
                   {profileEditTab === "basic" && (
-                    <div className="p-4 bg-mimi-cream rounded-xl space-y-4">
+                    <div className="p-3 sm:p-4 bg-mimi-cream rounded-xl space-y-4 w-full min-w-0 max-w-full overflow-x-clip">
                       <h3 className="text-base font-bold text-gray-800 pb-2 border-b border-gray-200">기본 정보 수정</h3>
-                      <div>
+                      <GroomerProfilePhotoInput value={photoUrl} onChange={setPhotoUrl} className="w-full min-w-0" />
+                      <div className="w-full min-w-0">
                         <label className="block text-sm font-medium text-gray-700 mb-2">자기 주소지</label>
                         <AddressSearchInput
                           value={address}
                           onChange={setAddress}
-                          placeholder="주소 검색 버튼을 클릭하여 입력"
+                          placeholder="검색 후 입력 또는 직접 입력"
+                          className="w-full"
                         />
                         <p className="text-xs text-gray-500 mt-1">주소 검색으로 자동 입력하거나 직접 입력해 주세요</p>
                       </div>

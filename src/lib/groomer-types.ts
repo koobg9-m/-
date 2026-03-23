@@ -23,6 +23,8 @@ export type GroomerProfile = {
   email?: string;
   intro?: string; // 소개글
   career?: string; // 경력 (예: 5년차, OO학원 수료)
+  /** 프로필 사진 (고객 예약 화면 노출용, base64 또는 URL) */
+  photoUrl?: string;
   address: string; // 자기 주소지 (시/구/동)
   radiusKm: number; // 반경 km (이 거리 내 방문 가능)
   area?: string; // 하위 호환: address에서 추출한 지역

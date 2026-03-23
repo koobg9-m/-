@@ -5,6 +5,23 @@ import { getAdminSettings } from "./admin-settings";
 import { getSmsTemplates, fillTemplate, addSmsLog } from "./notification-storage";
 import type { Booking } from "./groomer-types";
 
+/** 관리자 브라우저에서 /api/sms 로 실제 발송 (알리고·SKIP 모드) */
+async function sendSmsRequest(to: string, body: string): Promise<{ ok: boolean; error?: string }> {
+  if (typeof window === "undefined") return { ok: false, error: "no window" };
+  try {
+    const res = await fetch("/api/sms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to, body }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) return { ok: false, error: typeof data.error === "string" ? data.error : `HTTP ${res.status}` };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 function customerKey(b: Booking): string {
   const phone = (b.customerPhone ?? "").trim();
   const email = (b.customerEmail ?? "").trim().toLowerCase();
@@ -18,9 +35,9 @@ function customerKey(b: Booking): string {
  * - 완료일 + 주기(기본 28일) - 7일 = 발송일
  * - 관리자 페이지 로드 시 실행
  */
-export async function checkAndSendGroomingReminders(): Promise<{ sent: number; skipped: number }> {
+export async function checkAndSendGroomingReminders(): Promise<{ sent: number; skipped: number; failedSend: number }> {
   const settings = getAdminSettings();
-  if (!settings.groomingReminderEnabled) return { sent: 0, skipped: 0 };
+  if (!settings.groomingReminderEnabled) return { sent: 0, skipped: 0, failedSend: 0 };
 
   const intervalDays = settings.groomingReminderIntervalDays ?? 28;
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
@@ -46,6 +63,7 @@ export async function checkAndSendGroomingReminders(): Promise<{ sent: number; s
 
   let sent = 0;
   let skipped = 0;
+  let failedSend = 0;
 
   for (const booking of Array.from(byCustomer.values())) {
     if (booking.groomingReminderSentAt) {
@@ -79,6 +97,22 @@ export async function checkAndSendGroomingReminders(): Promise<{ sent: number; s
       serviceName: booking.serviceName ?? "",
     });
 
+    const api = await sendSmsRequest(phone, filled);
+    if (!api.ok) {
+      addSmsLog({
+        id: `S${Date.now()}-reminder-${booking.id}`,
+        templateId: template?.id,
+        to: phone,
+        body: filled,
+        status: "failed",
+        error: api.error,
+        createdAt: new Date().toISOString(),
+        bookingId: booking.id,
+      });
+      failedSend++;
+      continue;
+    }
+
     addSmsLog({
       id: `S${Date.now()}-reminder-${booking.id}`,
       templateId: template?.id,
@@ -93,7 +127,7 @@ export async function checkAndSendGroomingReminders(): Promise<{ sent: number; s
     sent++;
   }
 
-  return { sent, skipped };
+  return { sent, skipped, failedSend };
 }
 
 function addDays(dateStr: string, days: number): string {

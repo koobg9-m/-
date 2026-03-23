@@ -4,6 +4,7 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import AdminMenu from "@/components/admin/AdminMenu";
+import { saveAdminPasswordHash } from "@/lib/admin-password-hash";
 
 const Header = dynamic(() => import("@/components/layout/Header"), { ssr: false });
 const Footer = dynamic(() => import("@/components/layout/Footer"), { ssr: false });
@@ -53,27 +54,17 @@ export default function AdminPasswordPage() {
       }
       
       const data = await response.json();
-      
-      // 로컬 스토리지에 비밀번호 저장
-      const storedPasswords = localStorage.getItem("mimi_admin_passwords");
-      let passwords: string[] = storedPasswords ? (JSON.parse(storedPasswords) as string[]) : [];
 
-      // 기존 비밀번호 제거 후 새 비밀번호만 저장 (최대 3개 유지)
-      passwords = passwords.filter((p) => p !== password);
-      passwords.push(password);
-      
-      // 최대 3개의 비밀번호만 유지
-      if (passwords.length > 3) {
-        passwords = passwords.slice(-3);
+      /** 평문 비밀번호는 저장하지 않고 해시만 동기화 */
+      if (data.hash && typeof data.hash === "string") {
+        await saveAdminPasswordHash(data.hash);
       }
-      
-      localStorage.setItem("mimi_admin_passwords", JSON.stringify(passwords));
-      
-      // 비밀번호 해시도 저장
-      if (data.hash) {
-        localStorage.setItem("mimi_admin_password_hash", data.hash);
+      try {
+        localStorage.removeItem("mimi_admin_passwords");
+      } catch {
+        /* ignore */
       }
-      
+
       setSuccess(true);
       setPassword("");
       setConfirmPassword("");
