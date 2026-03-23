@@ -1412,6 +1412,18 @@ export default function AdminPage() {
                       <button onClick={() => { setGroomerDetailModal(null); setGroomerSmsBody(""); }} className="text-gray-500 hover:text-gray-700 text-2xl leading-none">×</button>
                     </div>
                     <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm mb-4">
+                      <div className="col-span-2">
+                        <span className="text-gray-500 mr-2">사진</span>
+                        {groomerDetailModal.g.photoUrl ? (
+                          <img
+                            src={groomerDetailModal.g.photoUrl}
+                            alt={`${groomerDetailModal.g.name} 프로필 사진`}
+                            className="mt-2 w-24 h-24 rounded-full object-cover ring-2 ring-stone-100"
+                          />
+                        ) : (
+                          <p className="text-sm text-gray-500 mt-2">-</p>
+                        )}
+                      </div>
                       <div><span className="text-gray-500">등록일</span><p className="font-medium">{groomerDetailModal.g.createdAt ? new Date(groomerDetailModal.g.createdAt).toLocaleDateString("ko-KR") : "-"}</p></div>
                       <div><span className="text-gray-500">전화번호</span><p className="font-medium">{groomerDetailModal.g.phone || "-"}</p></div>
                       <div><span className="text-gray-500">이메일</span><p className="font-medium truncate" title={groomerDetailModal.g.email}>{groomerDetailModal.g.email || "-"}</p></div>
