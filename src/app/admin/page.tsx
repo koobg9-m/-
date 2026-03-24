@@ -2187,9 +2187,20 @@ ${loginUrl}
                     }`}
                   >
                     {smsApiStatus.mode === "aligo" && (
-                      <p>
-                        <strong>SMS 연동됨</strong> — 알리고로 실제 발송됩니다. (Vercel 환경변수 ALIGO_USER_ID, ALIGO_API_KEY, ALIGO_SENDER)
-                      </p>
+                      <div className="space-y-2">
+                        <p>
+                          <strong>SMS 연동됨</strong> — 알리고로 실제 발송됩니다. (환경변수{" "}
+                          <code className="text-xs bg-white/80 px-1 rounded">ALIGO_USER_ID</code>,{" "}
+                          <code className="text-xs bg-white/80 px-1 rounded">ALIGO_API_KEY</code>,{" "}
+                          <code className="text-xs bg-white/80 px-1 rounded">ALIGO_SENDER</code>)
+                        </p>
+                        <p className="text-xs text-green-900/90 leading-relaxed">
+                          알리고는 <strong>발송 서버 IP 허용(고정 IP 권장)</strong>이 필요합니다. Vercel 기본 출구 IP는{" "}
+                          <strong>고정이 아니라 바뀔 수 있어</strong> &quot;인증되지 않은 발송IP&quot;가 다시 날 수 있습니다. 대안: (1) 실패 시{" "}
+                          <code className="bg-white/80 px-1 rounded">/api/egress-ip</code>로 나온 IP를 알리고에 추가 유지 (2) Vercel{" "}
+                          <strong>Static IP</strong> 등 고정 출구 IP 상품 (3) 고정 IP VPS를 두고 그쪽으로만 알리고 요청을 프록시.
+                        </p>
+                      </div>
                     )}
                     {smsApiStatus.mode === "skip" && (
                       <p>
