@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { getCustomerProfile, saveCustomerProfile } from "@/lib/customer-storage";
 import { getBookingsByCustomer, updateBooking } from "@/lib/groomer-storage";
+import { notifyAdminBookingCancelled } from "@/lib/notify-admin-cancel-sms";
 import { SERVICE_DEFS } from "@/lib/services";
 import { getCustomerPoints, getPointSettings } from "@/lib/point-storage";
 import CustomerProfileForm from "@/components/booking/CustomerProfileForm";
@@ -157,7 +158,14 @@ function MypageContent() {
       if (ok) {
         setCancelModalBooking(null);
         await refreshBookingsList();
-        alert("예약이 취소되었습니다.");
+        const sms = await notifyAdminBookingCancelled(b);
+        if (sms.ok) {
+          alert("예약이 취소되었습니다.");
+        } else {
+          alert(
+            `예약은 취소되었습니다.\n\n관리자 알림 문자 발송에 실패했습니다.\n(${sms.error ?? "알 수 없음"})`
+          );
+        }
       } else {
         alert("취소 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.");
       }
