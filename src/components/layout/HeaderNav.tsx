@@ -18,20 +18,28 @@ export default function HeaderNav() {
     }
     const checkAuth = async () => {
       try {
+        if (isSupabaseConfigured()) {
+          const { createClient } = await import("@/lib/supabase/client");
+          const { data } = await createClient().auth.getSession();
+          const session = data?.session;
+          const u = session?.user;
+          if (u && (u.email || u.phone)) {
+            const next = { phone: u.phone ? String(u.phone) : undefined, email: u.email ?? undefined };
+            setUser(next);
+            try {
+              localStorage.setItem("mimi_demo_user", JSON.stringify(next));
+            } catch {
+              // ignore
+            }
+            return;
+          }
+        }
         const stored = localStorage.getItem("mimi_demo_user");
         if (stored) {
           const parsed = JSON.parse(stored);
           if (parsed?.phone || parsed?.email) {
             setUser({ phone: parsed.phone, email: parsed.email });
             return;
-          }
-        }
-        if (isSupabaseConfigured()) {
-          const { createClient } = await import("@/lib/supabase/client");
-          const { data } = await createClient().auth.getSession();
-          const session = data?.session;
-          if (session?.user?.email) {
-            setUser({ email: session.user.email });
           }
         }
       } catch {

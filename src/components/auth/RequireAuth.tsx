@@ -37,23 +37,26 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
     }
     const checkAuth = async () => {
       try {
+        // Supabase 세션을 먼저 적용 — 이전에 남은 mimi_demo_user(전화)가 이메일 로그인을 덮어쓰지 않게 함
+        if (isSupabaseConfigured()) {
+          const { createClient } = await import("@/lib/supabase/client");
+          const { data } = await createClient().auth.getSession();
+          const session = data?.session;
+          const u = session?.user;
+          if (u && (u.email || u.phone)) {
+            const email = u.email ?? undefined;
+            const phone = u.phone ? String(u.phone) : undefined;
+            setUser({ phone, email });
+            syncCustomerAuthToLocalStorage({ phone, email });
+            return;
+          }
+        }
         const stored = localStorage.getItem("mimi_demo_user");
         if (stored) {
           const parsed = JSON.parse(stored);
           if (parsed?.phone || parsed?.email) {
             setUser({ phone: parsed.phone, email: parsed.email });
             syncCustomerAuthToLocalStorage({ phone: parsed.phone, email: parsed.email });
-            return;
-          }
-        }
-        if (isSupabaseConfigured()) {
-          const { createClient } = await import("@/lib/supabase/client");
-          const { data } = await createClient().auth.getSession();
-          const session = data?.session;
-          if (session?.user?.email) {
-            const email = session.user.email;
-            setUser({ email });
-            syncCustomerAuthToLocalStorage({ email });
             return;
           }
         }

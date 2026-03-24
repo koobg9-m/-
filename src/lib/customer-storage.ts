@@ -40,12 +40,49 @@ function getFromLocal(key: string): CustomerProfile | null {
   }
 }
 
+function normalizePhoneDigits(phone: string): string {
+  return phone.replace(/\D/g, "");
+}
+
+/** 로그인 식별자(전화/이메일)와 프로필이 같은 고객인지 — 공용 캐시 오염 방지 */
+function profileMatchesLoginIdentity(
+  profile: CustomerProfile,
+  phone?: string,
+  email?: string
+): boolean {
+  const wantPhone = normalizePhoneDigits((phone ?? "").trim());
+  const wantEmail = (email ?? "").trim().toLowerCase();
+  if (!wantPhone && !wantEmail) return false;
+  const profPhone = normalizePhoneDigits((profile.phone ?? "").trim());
+  const profEmail = (profile.email ?? "").trim().toLowerCase();
+  if (wantPhone && profPhone !== wantPhone) return false;
+  if (wantEmail && profEmail !== wantEmail) return false;
+  return true;
+}
+
 /** 고객 프로필 조회 (Supabase 설정 시 동기화) */
 export async function getCustomerProfile(phone?: string, email?: string): Promise<CustomerProfile | null> {
   if (typeof window === "undefined") return null;
   const key = (phone || email) ? getCustomerKey(phone, email) : getCustomerKeyFromStorage();
   const fromApi = await fetchData<CustomerProfile>(key);
-  const p = fromApi ?? getFromLocal(CUSTOMER_KEY_PREFIX); // API 없으면 로컬 폴백
+  if (fromApi) {
+    const p = fromApi;
+    if (p && !Array.isArray(p.pets)) p.pets = [];
+    return p;
+  }
+
+  const keyedLocal = getFromLocal(key);
+  if (keyedLocal) return keyedLocal;
+
+  if (phone || email) {
+    const legacy = getFromLocal(CUSTOMER_KEY_PREFIX);
+    if (legacy && profileMatchesLoginIdentity(legacy, phone, email)) {
+      return legacy;
+    }
+    return null;
+  }
+
+  const p = getFromLocal(CUSTOMER_KEY_PREFIX);
   if (p && !Array.isArray(p.pets)) p.pets = [];
   return p;
 }
@@ -73,6 +110,11 @@ export async function saveCustomerProfile(profile: CustomerProfile): Promise<boo
     const key = getCustomerKey(profile.phone, profile.email);
     if (profile.phone || profile.email) {
       await saveData(key, profile);
+      try {
+        localStorage.setItem(key, JSON.stringify(profile));
+      } catch {
+        // ignore
+      }
     }
     localStorage.setItem(CUSTOMER_KEY_PREFIX, JSON.stringify(profile)); // 로컬 즉시 반영
     return true;
