@@ -73,6 +73,13 @@ export default function HeaderNav() {
 
   return (
     <nav className="flex items-center gap-3 sm:gap-6 md:gap-8 flex-wrap justify-end min-w-0">
+      <Link
+        prefetch={false}
+        href="/qna"
+        className="text-sm text-mimi-orange font-semibold hover:text-mimi-primaryDark transition-colors duration-150"
+      >
+        문의·FAQ
+      </Link>
       <Link prefetch={false} href="/mypage" className="text-sm text-mimi-slate hover:text-mimi-primary transition-colors duration-150 font-medium">
         마이페이지
       </Link>

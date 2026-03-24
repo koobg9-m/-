@@ -54,6 +54,11 @@ export default function Footer() {
             <h4 className="font-bold text-white mb-5 text-sm uppercase tracking-wider">고객지원</h4>
             <ul className="space-y-4">
               <li>
+                <Link prefetch={false} href="/qna" className={`${navClass} font-semibold text-mimi-gold`}>
+                  문의·Q&amp;A
+                </Link>
+              </li>
+              <li>
                 <Link prefetch={false} href="/terms" className={navClass}>
                   이용약관
                 </Link>
