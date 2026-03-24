@@ -73,13 +73,61 @@ function getFromLocal<T>(key: string, def: T): T {
   }
 }
 
+/** API + local 머지 — 비밀번호는 서버(Supabase) 값이 있으면 항상 우선 (옛 local 해시가 덮어쓰면 로그인 실패) */
+function mergeGroomerApiWithLocal(apiItem: GroomerProfile, local?: GroomerProfile): GroomerProfile {
+  if (!local) return apiItem;
+  const localPatch = Object.fromEntries(
+    Object.entries(local).filter(([_, v]) => {
+      if (v == null) return false;
+      if (typeof v === "string") return v.trim().length > 0;
+      return true;
+    })
+  ) as Partial<GroomerProfile>;
+  const merged = { ...apiItem, ...localPatch } as GroomerProfile;
+  const apiHash = typeof apiItem.passwordHash === "string" && apiItem.passwordHash.trim().length > 0;
+  if (apiHash) merged.passwordHash = apiItem.passwordHash;
+  const apiPlain = typeof apiItem.passwordPlain === "string" && apiItem.passwordPlain.trim().length > 0;
+  if (apiPlain) merged.passwordPlain = apiItem.passwordPlain;
+  return merged;
+}
+
 /** 디자이너 프로필 목록 (Supabase 설정 시 API, 아니면 localStorage) */
 export async function getGroomerProfiles(): Promise<GroomerProfile[]> {
   if (typeof window === "undefined") return [];
   const fromApi = await fetchData<GroomerProfile[]>(GROOMER_KEY);
-  const list = fromApi ?? getFromLocal<GroomerProfile[]>(GROOMER_KEY, []);
-  if (fromApi != null) localStorage.setItem(GROOMER_KEY, JSON.stringify(fromApi));
-  return normalizeList(dedupeById(list), mapGroomer);
+  const localList = getFromLocal<GroomerProfile[]>(GROOMER_KEY, []);
+
+  // Supabase 동기화가 약간 지연/실패하더라도, 같은 브라우저에서 방금 저장한
+  // "사진/주소" 같은 필드는 localStorage 기준으로 먼저 반영하도록 머지합니다.
+  const localMap = new Map<string, GroomerProfile>();
+  for (const p of localList) {
+    const id = p?.id == null ? "" : String(p.id);
+    if (!id) continue;
+    localMap.set(id, p);
+  }
+
+  let mergedList: GroomerProfile[];
+  if (fromApi != null) {
+    const seenIds = new Set<string>();
+    mergedList = fromApi.map((apiItem) => {
+      const id = apiItem?.id == null ? "" : String(apiItem.id);
+      if (id) seenIds.add(id);
+      const local = id ? localMap.get(id) : undefined;
+      return mergeGroomerApiWithLocal(apiItem, local);
+    });
+    // API 목록에 아직 없는 id(이 기기에서만 생성·저장된 경우)는 local 행을 유지
+    for (const local of localList) {
+      const id = local?.id == null ? "" : String(local.id);
+      if (!id || seenIds.has(id)) continue;
+      mergedList.push(local);
+      seenIds.add(id);
+    }
+    localStorage.setItem(GROOMER_KEY, JSON.stringify(mergedList));
+  } else {
+    mergedList = localList;
+  }
+
+  return normalizeList(dedupeById(mergedList), mapGroomer);
 }
 
 /** 동기 버전 - localStorage만 (초기 로딩/폴백용) */

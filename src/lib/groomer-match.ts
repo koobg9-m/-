@@ -38,7 +38,11 @@ function customerAddressContainsGroomerArea(custAddr: string, groomerAddr: strin
   const custNorm = normalizeAddr(custAddr);
   const groomParts = getAddressParts(groomerAddr);
   if (groomParts.length === 0) return true;
-  for (const part of groomParts) {
+  // 도시(예: 서울) 레벨만 같아도 매칭이 true가 되는 문제를 막기 위해,
+  // "구/동/로/길"처럼 구체 주소 조각만 비교 대상으로 둡니다.
+  const addressTokens = groomParts.filter((p) => /(구|동|로|길)$/.test(p));
+  if (addressTokens.length === 0) return false;
+  for (const part of addressTokens) {
     const normalized = normalizeGu(part);
     if (normalized.length >= 2 && (custNorm.includes(part) || custNorm.includes(normalized))) return true;
   }
@@ -132,7 +136,9 @@ export type MatchResult = {
 
 /** 예약정지 디자이너 제외 */
 function filterActiveGroomers<T extends GroomerProfile>(groomers: T[]): T[] {
-  return groomers.filter((g) => !g.suspended);
+  // 고객 예약 흐름에서는 "비밀번호 부여된 디자이너"만 노출되도록 제한합니다.
+  // (관리자 화면/디자이너 대시보드는 별도 로직)
+  return groomers.filter((g) => !g.suspended && !!g.passwordHash?.trim());
 }
 
 /** 서비스·날짜·시간·고객주소에 맞는 디자이너 매칭 (거리순) - 동기, 주소 추정 폴백 */

@@ -215,7 +215,7 @@ export default function GroomerPage() {
     e.preventDefault();
     if (!profile?.passwordHash || !myId) return;
     setPasswordError("");
-    const ok = await verifyPassword(passwordInput, profile.passwordHash);
+    const ok = await verifyPassword(passwordInput.trim(), (profile.passwordHash ?? "").trim());
     if (ok) {
       sessionStorage.setItem(GROOMER_AUTH_KEY, myId);
       setAuthenticated(true);
@@ -262,7 +262,10 @@ export default function GroomerPage() {
       return;
     }
     const profiles = await getGroomerProfiles();
-    const found = profiles.find((p) => normalizePhone(p.phone ?? "") === phoneNorm);
+    const samePhone = profiles.filter((p) => normalizePhone(p.phone ?? "") === phoneNorm);
+    // 동일 전화로 중복 행이 있을 때, 비밀번호가 설정된 프로필을 우선 (옛 로컬 스냅샷만 매칭되는 경우 방지)
+    const found =
+      samePhone.find((p) => typeof p.passwordHash === "string" && p.passwordHash.trim().length > 0) ?? samePhone[0];
     if (!found) {
       setLoginError("등록된 디자이너를 찾을 수 없습니다. 연락처를 확인해 주세요.");
       return;
@@ -276,7 +279,7 @@ export default function GroomerPage() {
       setLoginError("비밀번호가 아직 부여되지 않았습니다. 관리자에게 문의해 주세요.");
       return;
     }
-    const ok = await verifyPassword(loginPassword, found.passwordHash);
+    const ok = await verifyPassword(loginPassword.trim(), (found.passwordHash ?? "").trim());
     if (ok) {
       localStorage.setItem(MY_GROOMER_KEY, found.id);
       sessionStorage.setItem(GROOMER_AUTH_KEY, found.id);

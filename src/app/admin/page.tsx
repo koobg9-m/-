@@ -1844,7 +1844,6 @@ ${loginUrl}
                             <th className="text-left py-2 px-2">첫방문</th>
                             <th className="text-left py-2 px-2">최근방문</th>
                             <th className="text-left py-2 px-2 min-w-[140px]">반려동물</th>
-                            <th className="text-left py-2 px-2 min-w-[120px]">서비스</th>
                             <th className="text-right py-2 px-2">포인트</th>
                             <th className="text-center py-2 px-2 w-20">상세</th>
                             <th className="text-center py-2 px-2 w-16">문자</th>
@@ -1904,13 +1903,6 @@ ${loginUrl}
                               <td className="py-2 px-2 text-gray-600 align-top text-xs max-w-[200px]">
                                 {c.pets.length > 0 ? (
                                   <span className="line-clamp-3 md:line-clamp-none whitespace-pre-wrap">{c.pets.join("\n")}</span>
-                                ) : (
-                                  "-"
-                                )}
-                              </td>
-                              <td className="py-2 px-2 text-gray-600 align-top text-xs max-w-[180px]">
-                                {c.services.length > 0 ? (
-                                  <span className="line-clamp-3 md:line-clamp-none whitespace-pre-wrap">{c.services.join("\n")}</span>
                                 ) : (
                                   "-"
                                 )}
