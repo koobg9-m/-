@@ -416,6 +416,83 @@ export default function AdminPage() {
   const unsettledAmount = unsettled.reduce((s, b) => s + calcSettlementAmount(svcTotal(b), commissionRate), 0);
   const settledAmount = settled.reduce((s, b) => s + calcSettlementAmount(svcTotal(b), commissionRate), 0);
 
+  const additionalFeesSum = (b: Booking) => (b.additionalFees ?? []).reduce((s, x) => s + (x.price ?? 0), 0);
+  const settlementScope = (b: Booking) => settlementFilterGroomer === "all" || b.groomerId === settlementFilterGroomer;
+  const scopedCompleted = completedBookings.filter(settlementScope);
+  const settlementByService = (() => {
+    const map = new Map<string, { count: number; revenue: number }>();
+    for (const b of scopedCompleted) {
+      const label =
+        (b.serviceName ?? "").trim() ||
+        SERVICE_DEFS.find((s) => s.id === b.serviceId)?.name ||
+        "기타";
+      const cur = map.get(label) ?? { count: 0, revenue: 0 };
+      cur.count += 1;
+      cur.revenue += svcTotal(b);
+      map.set(label, cur);
+    }
+    return Array.from(map.entries())
+      .map(([name, v]) => ({
+        name,
+        count: v.count,
+        revenue: v.revenue,
+        commission: calcCommission(v.revenue, commissionRate),
+        toGroomer: calcSettlementAmount(v.revenue, commissionRate),
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
+  })();
+  const settlementByPetType = (() => {
+    const map = new Map<string, { count: number; revenue: number }>();
+    for (const b of scopedCompleted) {
+      const label = (b.petType ?? "").trim() || "미입력";
+      const cur = map.get(label) ?? { count: 0, revenue: 0 };
+      cur.count += 1;
+      cur.revenue += svcTotal(b);
+      map.set(label, cur);
+    }
+    return Array.from(map.entries())
+      .map(([name, v]) => ({
+        name,
+        count: v.count,
+        revenue: v.revenue,
+        commission: calcCommission(v.revenue, commissionRate),
+        toGroomer: calcSettlementAmount(v.revenue, commissionRate),
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
+  })();
+  const settlementStatusBreakdown = (() => {
+    const unsettledNoReq = unsettled.filter((b) => settlementScope(b) && !b.settlementRequestedAt);
+    const unsettledReq = unsettled.filter((b) => settlementScope(b) && b.settlementRequestedAt);
+    const settledScoped = settled.filter(settlementScope);
+    const agg = (list: Booking[]) => ({
+      count: list.length,
+      revenue: list.reduce((s, b) => s + svcTotal(b), 0),
+      commission: list.reduce((s, b) => s + calcCommission(svcTotal(b), commissionRate), 0),
+      toGroomer: list.reduce((s, b) => s + calcSettlementAmount(svcTotal(b), commissionRate), 0),
+    });
+    return {
+      unsettledNoReq: agg(unsettledNoReq),
+      unsettledReq: agg(unsettledReq),
+      settled: agg(settledScoped),
+    };
+  })();
+  const settlementAmountComposition = (() => {
+    let base = 0;
+    let additional = 0;
+    for (const b of scopedCompleted) {
+      const af = additionalFeesSum(b);
+      additional += af;
+      base += Math.max(0, svcTotal(b) - af);
+    }
+    return {
+      base,
+      additional,
+      total: base + additional,
+      baseCommission: calcCommission(base, commissionRate),
+      addCommission: calcCommission(additional, commissionRate),
+    };
+  })();
+
   const statusCounts = ["paid", "confirmed", "completed", "cancelled"].map((status) => ({
     label: getStatusLabel(status),
     value: bookings.filter((b) => b.status === status).length,
@@ -2631,6 +2708,132 @@ ${loginUrl}
                   <p className="text-sm text-blue-600">수수료율 {commissionRate}%</p>
                 </div>
               </div>
+
+              <div className="card p-6 border border-stone-200">
+                <h3 className="font-bold text-gray-800 mb-1">카테고리별 집계</h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  {settlementFilterGroomer === "all"
+                    ? "전체 디자이너 · 서비스완료 건 기준"
+                    : `${groomers.find((g) => g.id === settlementFilterGroomer)?.name ?? ""} · 서비스완료 건 기준`}
+                </p>
+
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">정산 상태 (세부)</h4>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+                  <div className="p-4 rounded-xl bg-stone-50 border border-stone-200">
+                    <p className="text-xs text-stone-600">미정산 · 요청 전</p>
+                    <p className="text-lg font-bold text-stone-800">{settlementStatusBreakdown.unsettledNoReq.count}건</p>
+                    <p className="text-sm text-stone-700">디자이너 {settlementStatusBreakdown.unsettledNoReq.toGroomer.toLocaleString()}원</p>
+                    <p className="text-xs text-stone-500 mt-1">매출 {settlementStatusBreakdown.unsettledNoReq.revenue.toLocaleString()}원</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-amber-50 border border-amber-200">
+                    <p className="text-xs text-amber-800">미정산 · 정산요청됨</p>
+                    <p className="text-lg font-bold text-amber-900">{settlementStatusBreakdown.unsettledReq.count}건</p>
+                    <p className="text-sm text-amber-900">디자이너 {settlementStatusBreakdown.unsettledReq.toGroomer.toLocaleString()}원</p>
+                    <p className="text-xs text-amber-700 mt-1">매출 {settlementStatusBreakdown.unsettledReq.revenue.toLocaleString()}원</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-orange-50 border border-orange-200">
+                    <p className="text-xs text-orange-800">미정산 합계</p>
+                    <p className="text-lg font-bold text-orange-900">
+                      {settlementStatusBreakdown.unsettledNoReq.count + settlementStatusBreakdown.unsettledReq.count}건
+                    </p>
+                    <p className="text-sm text-orange-900">
+                      디자이너{" "}
+                      {(settlementStatusBreakdown.unsettledNoReq.toGroomer + settlementStatusBreakdown.unsettledReq.toGroomer).toLocaleString()}원
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-green-50 border border-green-200">
+                    <p className="text-xs text-green-800">정산완료</p>
+                    <p className="text-lg font-bold text-green-900">{settlementStatusBreakdown.settled.count}건</p>
+                    <p className="text-sm text-green-900">디자이너 {settlementStatusBreakdown.settled.toGroomer.toLocaleString()}원</p>
+                    <p className="text-xs text-green-700 mt-1">매출 {settlementStatusBreakdown.settled.revenue.toLocaleString()}원</p>
+                  </div>
+                </div>
+
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">금액 구성 (기본 서비스 vs 추가요금)</h4>
+                <div className="grid md:grid-cols-3 gap-3 mb-6 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  <div>
+                    <p className="text-xs text-slate-600">기본 서비스 매출</p>
+                    <p className="text-xl font-bold text-slate-800">{settlementAmountComposition.base.toLocaleString()}원</p>
+                    <p className="text-xs text-slate-500">수수료 {settlementAmountComposition.baseCommission.toLocaleString()}원</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-600">추가요금 합계</p>
+                    <p className="text-xl font-bold text-slate-800">{settlementAmountComposition.additional.toLocaleString()}원</p>
+                    <p className="text-xs text-slate-500">수수료 {settlementAmountComposition.addCommission.toLocaleString()}원</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-600">합계 (확인)</p>
+                    <p className="text-xl font-bold text-mimi-orange">{settlementAmountComposition.total.toLocaleString()}원</p>
+                    <p className="text-xs text-slate-500">선택 추가요금이 없으면 기본만 표시됩니다</p>
+                  </div>
+                </div>
+
+                <div className="grid lg:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">서비스 종류별</h4>
+                    {settlementByService.length === 0 ? (
+                      <p className="text-sm text-gray-500">해당 건이 없습니다</p>
+                    ) : (
+                      <div className="overflow-x-auto rounded-lg border border-gray-200">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-stone-50 border-b">
+                              <th className="text-left py-2 px-3">서비스</th>
+                              <th className="text-right py-2 px-3">건수</th>
+                              <th className="text-right py-2 px-3">매출</th>
+                              <th className="text-right py-2 px-3">수수료</th>
+                              <th className="text-right py-2 px-3">디자이너</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {settlementByService.map((row) => (
+                              <tr key={row.name} className="border-b border-gray-100 hover:bg-mimi-cream/40">
+                                <td className="py-2 px-3 font-medium">{row.name}</td>
+                                <td className="text-right py-2 px-3">{row.count}</td>
+                                <td className="text-right py-2 px-3">{row.revenue.toLocaleString()}</td>
+                                <td className="text-right py-2 px-3 text-blue-600">{row.commission.toLocaleString()}</td>
+                                <td className="text-right py-2 px-3 text-green-700">{row.toGroomer.toLocaleString()}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">견종·표시 구분별 (petType)</h4>
+                    {settlementByPetType.length === 0 ? (
+                      <p className="text-sm text-gray-500">해당 건이 없습니다</p>
+                    ) : (
+                      <div className="overflow-x-auto rounded-lg border border-gray-200">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-stone-50 border-b">
+                              <th className="text-left py-2 px-3">구분</th>
+                              <th className="text-right py-2 px-3">건수</th>
+                              <th className="text-right py-2 px-3">매출</th>
+                              <th className="text-right py-2 px-3">수수료</th>
+                              <th className="text-right py-2 px-3">디자이너</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {settlementByPetType.map((row) => (
+                              <tr key={row.name} className="border-b border-gray-100 hover:bg-mimi-cream/40">
+                                <td className="py-2 px-3 font-medium">{row.name}</td>
+                                <td className="text-right py-2 px-3">{row.count}</td>
+                                <td className="text-right py-2 px-3">{row.revenue.toLocaleString()}</td>
+                                <td className="text-right py-2 px-3 text-blue-600">{row.commission.toLocaleString()}</td>
+                                <td className="text-right py-2 px-3 text-green-700">{row.toGroomer.toLocaleString()}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div className="card p-6">
                 <h3 className="font-bold text-gray-800 mb-4">디자이너별 정산 요약</h3>
                 {groomers.length === 0 ? (

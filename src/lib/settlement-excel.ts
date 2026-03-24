@@ -5,7 +5,22 @@ import { calcCommission, calcSettlementAmount, getServiceTotalForSettlement } fr
 import * as XLSX from "xlsx";
 
 /** 정산 엑셀용 예약 타입 (groomerId 등 선택 필드 허용) */
-type BookingLike = { date?: string; time?: string; groomerName?: string; serviceName?: string; customerName?: string; customerPhone?: string; address?: string; price: number; pointsUsed?: number; serviceTotal?: number; settlementRequestedAt?: string };
+type BookingLike = {
+  date?: string;
+  time?: string;
+  groomerName?: string;
+  serviceName?: string;
+  serviceId?: string;
+  petType?: string;
+  customerName?: string;
+  customerPhone?: string;
+  address?: string;
+  price: number;
+  pointsUsed?: number;
+  serviceTotal?: number;
+  settlementRequestedAt?: string;
+  additionalFees?: { price: number }[];
+};
 
 export async function downloadSettlementExcel(
   _completedBookings: BookingLike[],
@@ -101,6 +116,69 @@ export async function downloadSettlementExcel(
   ];
   const wsSettled = XLSX.utils.aoa_to_sheet(settledData);
   XLSX.utils.book_append_sheet(wb, wsSettled, "정산완료 상세");
+
+  // 5. 서비스 종류별 집계
+  const byService = new Map<string, { count: number; revenue: number }>();
+  for (const b of _completedBookings) {
+    const label = (b.serviceName ?? "").trim() || (b.serviceId ?? "") || "기타";
+    const st = svcTotal(b);
+    const cur = byService.get(label) ?? { count: 0, revenue: 0 };
+    cur.count += 1;
+    cur.revenue += st;
+    byService.set(label, cur);
+  }
+  const serviceAgg = Array.from(byService.entries())
+    .map(([name, v]) => {
+      const fee = calcCommission(v.revenue, commissionRate);
+      const tg = calcSettlementAmount(v.revenue, commissionRate);
+      return [name, v.count, v.revenue, fee, tg] as (string | number)[];
+    })
+    .sort((a, b) => (b[2] as number) - (a[2] as number));
+  const wsByService = XLSX.utils.aoa_to_sheet([
+    ["서비스", "건수", "매출(원)", "수수료(원)", "디자이너정산액(원)"],
+    ...serviceAgg,
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsByService, "서비스별 집계");
+
+  // 6. 견종·표시 구분별 (petType)
+  const byPet = new Map<string, { count: number; revenue: number }>();
+  for (const b of _completedBookings) {
+    const label = (b.petType ?? "").trim() || "미입력";
+    const st = svcTotal(b);
+    const cur = byPet.get(label) ?? { count: 0, revenue: 0 };
+    cur.count += 1;
+    cur.revenue += st;
+    byPet.set(label, cur);
+  }
+  const petAgg = Array.from(byPet.entries())
+    .map(([name, v]) => {
+      const fee = calcCommission(v.revenue, commissionRate);
+      const tg = calcSettlementAmount(v.revenue, commissionRate);
+      return [name, v.count, v.revenue, fee, tg] as (string | number)[];
+    })
+    .sort((a, b) => (b[2] as number) - (a[2] as number));
+  const wsByPet = XLSX.utils.aoa_to_sheet([
+    ["구분(petType)", "건수", "매출(원)", "수수료(원)", "디자이너정산액(원)"],
+    ...petAgg,
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsByPet, "견종구분별 집계");
+
+  // 7. 금액 구성 (기본 vs 추가요금)
+  let baseSum = 0;
+  let addSum = 0;
+  for (const b of _completedBookings) {
+    const st = svcTotal(b);
+    const af = (b.additionalFees ?? []).reduce((s, x) => s + (x.price ?? 0), 0);
+    addSum += af;
+    baseSum += Math.max(0, st - af);
+  }
+  const wsComposition = XLSX.utils.aoa_to_sheet([
+    ["구분", "금액(원)", "수수료(원)"],
+    ["기본 서비스", baseSum, calcCommission(baseSum, commissionRate)],
+    ["추가요금", addSum, calcCommission(addSum, commissionRate)],
+    ["합계", baseSum + addSum, calcCommission(baseSum + addSum, commissionRate)],
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsComposition, "금액구성");
 
   const fileName = `정산내역_${new Date().toISOString().slice(0, 10)}.xlsx`;
   XLSX.writeFile(wb, fileName);
