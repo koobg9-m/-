@@ -67,7 +67,8 @@ export async function POST(req: NextRequest) {
     if (isSupabaseConfiguredServer()) {
       try {
         const dbHash = await getAdminPasswordHashFromDatabase();
-        if (dbHash && hashPasswordSha256(password) === dbHash) {
+        const inputHash = hashPasswordSha256(password);
+        if (dbHash && inputHash === dbHash) {
           return setAuthCookieResponse();
         }
       } catch (e) {

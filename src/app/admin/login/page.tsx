@@ -70,7 +70,7 @@ export default function AdminLoginPage() {
           "Pragma": "no-cache"
         },
         credentials: "include",
-        body: JSON.stringify({ password: passwordInput }),
+        body: JSON.stringify({ password: passwordInput.trim() }),
       });
       
       // 응답 처리
