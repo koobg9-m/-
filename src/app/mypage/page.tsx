@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { getServiceTotalForSettlement } from "@/lib/admin-settings";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { getCustomerProfile, saveCustomerProfile } from "@/lib/customer-storage";
 import { getBookingsByCustomer, updateBooking } from "@/lib/groomer-storage";
 import { SERVICE_DEFS } from "@/lib/services";
-import { getCustomerPoints } from "@/lib/point-storage";
+import { getCustomerPoints, getPointSettings } from "@/lib/point-storage";
 import CustomerProfileForm from "@/components/booking/CustomerProfileForm";
 import type { CustomerProfile, Booking } from "@/lib/groomer-types";
 import RequireAuth from "@/components/auth/RequireAuth";
@@ -59,6 +60,30 @@ function canCustomerCancelBooking(b: Booking): boolean {
   return s === "pending" || s === "paid" || s === "confirmed";
 }
 
+function bookingServiceSummaryLines(b: Booking, pointValueWon: number): { label: string; value: string }[] {
+  const lines: { label: string; value: string }[] = [
+    { label: "서비스", value: b.serviceName || "—" },
+    { label: "일시", value: `${b.date ?? "—"} ${b.time ?? ""}`.trim() },
+    { label: "반려동물", value: formatBookingPets(b) },
+    { label: "디자이너", value: b.groomerName || "—" },
+    { label: "방문 주소", value: b.address || "—" },
+  ];
+  const st = getServiceTotalForSettlement(b, pointValueWon);
+  lines.push({ label: "서비스 금액(참고)", value: `${st.toLocaleString()}원` });
+  if ((b.pointsUsed ?? 0) > 0) {
+    lines.push({ label: "포인트 사용", value: `${b.pointsUsed}P (약 ${((b.pointsUsed ?? 0) * pointValueWon).toLocaleString()}원)` });
+  }
+  lines.push({ label: "결제 금액", value: `${(b.price ?? 0).toLocaleString()}원` });
+  if (b.additionalFees && b.additionalFees.length > 0) {
+    lines.push({
+      label: "추가 요금 항목",
+      value: b.additionalFees.map((f) => `${f.name} ${f.price.toLocaleString()}원`).join(", "),
+    });
+  }
+  lines.push({ label: "예약 상태", value: getStatusLabel(b.status) });
+  return lines;
+}
+
 function MypageContent() {
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -84,6 +109,14 @@ function MypageContent() {
 
   const [bookingsRefresh, setBookingsRefresh] = useState(0);
   const [cancelLoadingId, setCancelLoadingId] = useState<string | null>(null);
+  const [cancelModalBooking, setCancelModalBooking] = useState<Booking | null>(null);
+  const [cancelConfirmAck, setCancelConfirmAck] = useState(false);
+  const pointValueWon = getPointSettings().pointValueWon ?? 1;
+
+  useEffect(() => {
+    setCancelConfirmAck(false);
+  }, [cancelModalBooking?.id]);
+
   useEffect(() => {
     getCustomerProfile().then((p) => {
       if (p?.phone || p?.email) {
@@ -105,26 +138,25 @@ function MypageContent() {
     setSaved(true);
   };
 
-  const handleCancelBooking = async (b: Booking) => {
-    if (!canCustomerCancelBooking(b)) return;
-    if (
-      !confirm(
-        "이 예약을 취소하시겠습니까?\n\n취소·환불 규정은 상세 요금표에서 확인할 수 있습니다."
-      )
-    ) {
-      return;
+  const refreshBookingsList = async () => {
+    const p = await getCustomerProfile();
+    if (p?.phone || p?.email) {
+      const list = await getBookingsByCustomer(p.phone, p.email);
+      setBookings(list);
+    } else {
+      setBookingsRefresh((k) => k + 1);
     }
+  };
+
+  const handleConfirmCancelFromModal = async () => {
+    const b = cancelModalBooking;
+    if (!b || !cancelConfirmAck || !canCustomerCancelBooking(b)) return;
     setCancelLoadingId(b.id);
     try {
       const ok = await updateBooking(b.id, { status: "cancelled" });
       if (ok) {
-        const p = await getCustomerProfile();
-        if (p?.phone || p?.email) {
-          const list = await getBookingsByCustomer(p.phone, p.email);
-          setBookings(list);
-        } else {
-          setBookingsRefresh((k) => k + 1);
-        }
+        setCancelModalBooking(null);
+        await refreshBookingsList();
         alert("예약이 취소되었습니다.");
       } else {
         alert("취소 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.");
@@ -306,7 +338,7 @@ function MypageContent() {
               <div className="card p-4 bg-amber-50/30 border-amber-200/30 space-y-1">
                 <p className="text-sm text-gray-600">총 예약 <strong>{bookings.length}건</strong> · 서비스완료 <strong>{completedCount}회</strong></p>
                 <p className="text-xs text-gray-500">
-                  결제완료·예약확정 상태인 예약은 아래 카드에서 <strong className="text-gray-700">예약 취소</strong>를 누를 수 있어요. 서비스가 완료된 뒤에는 취소할 수 없습니다.{" "}
+                  취소하려면 예약 카드에서 <strong className="text-gray-700">예약 취소</strong>를 누른 뒤, 열리는 화면에서 <strong className="text-gray-700">예약 내용을 확인</strong>하고 취소 여부를 결정해 주세요. 서비스 완료 후에는 취소할 수 없습니다.{" "}
                   <Link href="/pricing" className="text-mimi-orange hover:underline">
                     취소·환불 안내
                   </Link>
@@ -350,11 +382,11 @@ function MypageContent() {
                         {canCustomerCancelBooking(b) && (
                           <button
                             type="button"
-                            onClick={() => void handleCancelBooking(b)}
+                            onClick={() => setCancelModalBooking(b)}
                             disabled={cancelLoadingId === b.id}
                             className="mt-2 block w-full sm:w-auto sm:ml-auto px-3 py-1.5 text-xs font-medium rounded-lg border border-red-200 text-red-700 bg-red-50 hover:bg-red-100 disabled:opacity-60"
                           >
-                            {cancelLoadingId === b.id ? "처리 중…" : "예약 취소"}
+                            예약 취소
                           </button>
                         )}
                       </div>
@@ -421,6 +453,78 @@ function MypageContent() {
           </div>
         </div>
       </main>
+      {cancelModalBooking && canCustomerCancelBooking(cancelModalBooking) && (
+        <div
+          className="fixed inset-0 z-[1250] bg-black/50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cancel-modal-title"
+          onClick={() => {
+            if (!cancelLoadingId) setCancelModalBooking(null);
+          }}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="cancel-modal-title" className="text-lg font-bold text-gray-800">
+              예약 내용 확인
+            </h3>
+            <p className="text-sm text-gray-600 mt-1 mb-4">
+              취소하기 전에 아래 예약 정보를 확인한 뒤, 취소 여부를 결정해 주세요.
+            </p>
+            <dl className="space-y-2 text-sm border border-stone-100 rounded-xl p-4 bg-stone-50/80">
+              {bookingServiceSummaryLines(cancelModalBooking, pointValueWon).map((row) => (
+                <div key={row.label} className="flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-4 border-b border-stone-100/80 last:border-0 pb-2 last:pb-0">
+                  <dt className="text-gray-500 shrink-0">{row.label}</dt>
+                  <dd className="text-gray-900 font-medium text-right sm:text-left break-words">{row.value}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="text-xs text-gray-500 mt-3">
+              환불 비율 등은{" "}
+              <Link
+                href="/pricing"
+                className="text-mimi-orange font-medium hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                상세 요금표 · 취소·환불 안내
+              </Link>
+              를 참고해 주세요.
+            </p>
+            <label className="mt-4 flex items-start gap-2 cursor-pointer text-sm text-gray-700">
+              <input
+                type="checkbox"
+                className="mt-1 rounded border-gray-300 text-mimi-orange focus:ring-mimi-orange"
+                checked={cancelConfirmAck}
+                onChange={(e) => setCancelConfirmAck(e.target.checked)}
+              />
+              <span>위 예약 정보를 확인했으며, 이 예약을 취소합니다.</span>
+            </label>
+            <div className="mt-5 flex flex-col-reverse sm:flex-row gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!cancelLoadingId) setCancelModalBooking(null);
+                }}
+                disabled={!!cancelLoadingId}
+                className="flex-1 py-2.5 rounded-xl border border-gray-300 text-gray-800 font-medium hover:bg-gray-50 disabled:opacity-50"
+              >
+                돌아가기
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleConfirmCancelFromModal()}
+                disabled={!cancelConfirmAck || cancelLoadingId === cancelModalBooking.id}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {cancelLoadingId === cancelModalBooking.id ? "처리 중…" : "예약 취소 확정"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {photoModal && (
         <div
           className="fixed inset-0 z-[1200] bg-black/60 flex items-center justify-center p-4"
