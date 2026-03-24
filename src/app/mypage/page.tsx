@@ -53,6 +53,12 @@ function formatBookingPets(b: Booking): string {
   return `${b.petName} (${b.petType})`;
 }
 
+/** 서비스 전·예약 확정 전까지 고객이 직접 취소 가능 */
+function canCustomerCancelBooking(b: Booking): boolean {
+  const s = b.status;
+  return s === "pending" || s === "paid" || s === "confirmed";
+}
+
 function MypageContent() {
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -77,6 +83,7 @@ function MypageContent() {
   }, [saved]);
 
   const [bookingsRefresh, setBookingsRefresh] = useState(0);
+  const [cancelLoadingId, setCancelLoadingId] = useState<string | null>(null);
   useEffect(() => {
     getCustomerProfile().then((p) => {
       if (p?.phone || p?.email) {
@@ -96,6 +103,35 @@ function MypageContent() {
       return;
     }
     setSaved(true);
+  };
+
+  const handleCancelBooking = async (b: Booking) => {
+    if (!canCustomerCancelBooking(b)) return;
+    if (
+      !confirm(
+        "이 예약을 취소하시겠습니까?\n\n취소·환불 규정은 상세 요금표에서 확인할 수 있습니다."
+      )
+    ) {
+      return;
+    }
+    setCancelLoadingId(b.id);
+    try {
+      const ok = await updateBooking(b.id, { status: "cancelled" });
+      if (ok) {
+        const p = await getCustomerProfile();
+        if (p?.phone || p?.email) {
+          const list = await getBookingsByCustomer(p.phone, p.email);
+          setBookings(list);
+        } else {
+          setBookingsRefresh((k) => k + 1);
+        }
+        alert("예약이 취소되었습니다.");
+      } else {
+        alert("취소 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      }
+    } finally {
+      setCancelLoadingId(null);
+    }
   };
 
   const completedBookings = bookings.filter((b) => b.status === "completed");
@@ -267,8 +303,14 @@ function MypageContent() {
 
           {tab === "bookings" && (
             <div className="space-y-4">
-              <div className="card p-4 bg-amber-50/30 border-amber-200/30">
+              <div className="card p-4 bg-amber-50/30 border-amber-200/30 space-y-1">
                 <p className="text-sm text-gray-600">총 예약 <strong>{bookings.length}건</strong> · 서비스완료 <strong>{completedCount}회</strong></p>
+                <p className="text-xs text-gray-500">
+                  결제완료·예약확정 상태인 예약은 아래 카드에서 <strong className="text-gray-700">예약 취소</strong>를 누를 수 있어요. 서비스가 완료된 뒤에는 취소할 수 없습니다.{" "}
+                  <Link href="/pricing" className="text-mimi-orange hover:underline">
+                    취소·환불 안내
+                  </Link>
+                </p>
               </div>
               {bookings.length === 0 ? (
                 <div className="card p-8 text-center text-gray-600">
@@ -290,11 +332,31 @@ function MypageContent() {
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-mimi-orange">{b.price?.toLocaleString()}원</p>
-                        <span className={`inline-block mt-2 px-3 py-1 text-xs rounded-full ${
-                          b.status === "paid" ? "bg-green-100 text-green-800" : b.status === "confirmed" ? "bg-blue-100 text-blue-800" : b.status === "completed" ? "bg-gray-100 text-gray-700" : "bg-gray-100 text-gray-600"
-                        }`}>
+                        <span
+                          className={`inline-block mt-2 px-3 py-1 text-xs rounded-full ${
+                            b.status === "paid"
+                              ? "bg-green-100 text-green-800"
+                              : b.status === "confirmed"
+                                ? "bg-blue-100 text-blue-800"
+                                : b.status === "completed"
+                                  ? "bg-gray-100 text-gray-700"
+                                  : b.status === "cancelled"
+                                    ? "bg-red-100 text-red-800"
+                                    : "bg-gray-100 text-gray-600"
+                          }`}
+                        >
                           {getStatusLabel(b.status)}
                         </span>
+                        {canCustomerCancelBooking(b) && (
+                          <button
+                            type="button"
+                            onClick={() => void handleCancelBooking(b)}
+                            disabled={cancelLoadingId === b.id}
+                            className="mt-2 block w-full sm:w-auto sm:ml-auto px-3 py-1.5 text-xs font-medium rounded-lg border border-red-200 text-red-700 bg-red-50 hover:bg-red-100 disabled:opacity-60"
+                          >
+                            {cancelLoadingId === b.id ? "처리 중…" : "예약 취소"}
+                          </button>
+                        )}
                       </div>
                     </div>
                     {b.status === "completed" && (
