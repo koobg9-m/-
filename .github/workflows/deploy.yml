@@ -1,19 +1,16 @@
-# main/master 에 push 하면 Vercel 프로덕션 자동 배포
-# 필요: GitHub 저장소 Settings → Secrets → VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
-# (Secrets 미설정 시 워크플로만 실패함. Vercel 대시보드에서 Git 연동만 켜도 동일하게 자동 배포됨.)
-name: Deploy to Vercel
+# 가장 쉬운 자동 배포: Vercel 대시보드 → mimisalon 프로젝트 → Settings → Git
+#   → GitHub 저장소 연결, Production Branch = main
+#   → 이후 main 에 push 할 때마다 Vercel이 알아서 빌드·배포 (Secrets 불필요)
+#
+# 아래 워크플로는 수동 실행용(Actions 탭 → Run workflow). 평소엔 끄고 두어도 됨.
+name: Deploy to Vercel (manual)
 
 on:
-  push:
-    branches: [main, master]
   workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip ci]'))
     steps:
       - name: Checkout
         uses: actions/checkout@v4
