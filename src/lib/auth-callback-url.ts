@@ -18,6 +18,13 @@ function trimOrigin(url: string): string {
 
 /** 브라우저·빌드 타임 공통: 사이트 공개 URL (Vercel 환경 변수 권장) */
 export function getSiteOrigin(): string {
+  if (typeof window !== "undefined") {
+    const { hostname } = window.location;
+    if (hostname !== "localhost" && hostname !== "127.0.0.1") {
+      return trimOrigin(window.location.origin);
+    }
+  }
+
   const fromEnv =
     typeof process !== "undefined" && process.env.NEXT_PUBLIC_SITE_URL
       ? trimOrigin(process.env.NEXT_PUBLIC_SITE_URL.trim())

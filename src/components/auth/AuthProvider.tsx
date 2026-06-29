@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { identityFromSupabaseUser } from "@/lib/auth/session-identity";
 
 type AuthState = {
   /** 이메일 로그인은 phone 없이 email 만 있을 수 있음 */
@@ -51,17 +52,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const supabase = createClient();
         const { data: userData } = await supabase.auth.getUser();
         const supabaseUser = userData?.user;
-        if (supabaseUser?.phone) {
-          setUser({ phone: supabaseUser.phone, email: supabaseUser.email ?? undefined });
-        } else if (supabaseUser?.email) {
-          setUser({ email: supabaseUser.email });
+        if (supabaseUser) {
+          const { phone, email } = identityFromSupabaseUser(supabaseUser) ?? {};
+          setUser({ phone, email });
         }
         const { data: subData } = supabase.auth.onAuthStateChange((_event, session) => {
           const u = session?.user;
-          if (u?.phone) {
-            setUser({ phone: u.phone, email: u.email ?? undefined });
-          } else if (u?.email) {
-            setUser({ email: u.email });
+          if (u) {
+            const { phone, email } = identityFromSupabaseUser(u) ?? {};
+            setUser({ phone, email });
           } else {
             setUser(null);
           }

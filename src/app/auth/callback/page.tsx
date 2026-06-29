@@ -6,12 +6,32 @@ import Link from "next/link";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { getUserProfile, updateUserProfile } from "@/lib/auth/user-profile";
+import { syncSessionIdentityToStorage } from "@/lib/auth/session-identity";
 
 /** Supabase가 리다이렉트에 실을 수 있는 OTP 타입 (token_hash 플로우) */
 const OTP_TYPES = new Set(["email", "signup", "magiclink", "recovery", "invite", "email_change"]);
 
 function isOtpType(t: string | null): t is "email" | "signup" | "magiclink" | "recovery" | "invite" | "email_change" {
   return !!t && OTP_TYPES.has(t);
+}
+
+async function finishAuthAndRedirect(
+  supabase: SupabaseClient,
+  router: { replace: (href: string) => void },
+  next: string
+) {
+  const { data } = await supabase.auth.getSession();
+  const session = data?.session;
+  if (session?.user) {
+    syncSessionIdentityToStorage(session.user);
+    try {
+      const profile = await getUserProfile(supabase, session.user);
+      if (profile) await updateUserProfile(supabase, profile);
+    } catch (profileError) {
+      console.error("프로필 정보 처리 오류:", profileError);
+    }
+  }
+  router.replace(next);
 }
 
 /**
@@ -99,7 +119,7 @@ function AuthCallbackContent() {
           const early = earlyData?.session;
           if (early) {
             finishedRef.current = true;
-            router.replace(next);
+            await finishAuthAndRedirect(supabase, router, next);
             return;
           }
         } catch {
@@ -127,7 +147,7 @@ function AuthCallbackContent() {
               const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
               if (!exchangeError) {
                 finishedRef.current = true;
-                router.replace(next);
+                await finishAuthAndRedirect(supabase, router, next);
                 return;
               }
               
@@ -135,17 +155,8 @@ function AuthCallbackContent() {
               try {
                 const session = await waitForAuthSession(supabase);
                 if (session?.user) {
-                  try {
-                    const profile = await getUserProfile(supabase, session.user);
-                    if (profile) {
-                      await updateUserProfile(supabase, profile);
-                    }
-                  } catch (profileError) {
-                    console.error("프로필 정보 처리 오류:", profileError);
-                  }
-
                   finishedRef.current = true;
-                  router.replace(next);
+                  await finishAuthAndRedirect(supabase, router, next);
                   return;
                 }
               } catch (sessionError) {
@@ -161,7 +172,7 @@ function AuthCallbackContent() {
               const session = await waitForAuthSession(supabase, 8000);
               if (session) {
                 finishedRef.current = true;
-                router.replace(next);
+                await finishAuthAndRedirect(supabase, router, next);
                 return;
               }
 
@@ -182,7 +193,7 @@ function AuthCallbackContent() {
             try {
               const { error: otpError } = await supabase.auth.verifyOtp({ token_hash, type: typeRaw });
               if (!otpError) {
-                router.replace(next);
+                await finishAuthAndRedirect(supabase, router, next);
                 return;
               }
               setError(otpError.message || "인증에 실패했습니다.");
@@ -193,7 +204,7 @@ function AuthCallbackContent() {
               // OTP 검증 실패 시에도 세션 확인 시도
               const session = await waitForAuthSession(supabase, 8000);
               if (session) {
-                router.replace(next);
+                await finishAuthAndRedirect(supabase, router, next);
                 return;
               }
               
@@ -210,7 +221,7 @@ function AuthCallbackContent() {
           if (typeof window !== "undefined" && window.location.hash) {
             const session = await waitForAuthSession(supabase);
             if (session) {
-              router.replace(next);
+              await finishAuthAndRedirect(supabase, router, next);
               return;
             }
           }
@@ -222,7 +233,7 @@ function AuthCallbackContent() {
         try {
           const session = await waitForAuthSession(supabase);
           if (session) {
-            router.replace(next);
+            await finishAuthAndRedirect(supabase, router, next);
             return;
           }
         } catch (finalSessionError) {

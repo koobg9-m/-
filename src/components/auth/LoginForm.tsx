@@ -139,11 +139,10 @@ export default function LoginForm() {
       });
       
       if (err) throw err;
-      
-      // 성공 시 리디렉션은 Supabase가 자동으로 처리
-      // 로컬에서 테스트하는 경우 수동 리디렉션
-      if (data?.url && isLocalHost) {
-        window.location.href = data.url;
+
+      if (data?.url) {
+        window.location.assign(data.url);
+        return;
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "카카오 로그인 실패";

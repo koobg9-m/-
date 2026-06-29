@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
+import { identityFromSupabaseUser } from "@/lib/auth/session-identity";
 
 const SKIP_CUSTOMER_AUTH = process.env.NEXT_PUBLIC_SKIP_CUSTOMER_AUTH === "true";
 
@@ -43,9 +44,8 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
           const { data } = await createClient().auth.getSession();
           const session = data?.session;
           const u = session?.user;
-          if (u && (u.email || u.phone)) {
-            const email = u.email ?? undefined;
-            const phone = u.phone ? String(u.phone) : undefined;
+          if (u) {
+            const { phone, email } = identityFromSupabaseUser(u) ?? {};
             setUser({ phone, email });
             syncCustomerAuthToLocalStorage({ phone, email });
             return;

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
+import { identityFromSupabaseUser } from "@/lib/auth/session-identity";
 
 const SKIP_CUSTOMER_AUTH = process.env.NEXT_PUBLIC_SKIP_CUSTOMER_AUTH === "true";
 
@@ -23,8 +24,9 @@ export default function HeaderNav() {
           const { data } = await createClient().auth.getSession();
           const session = data?.session;
           const u = session?.user;
-          if (u && (u.email || u.phone)) {
-            const next = { phone: u.phone ? String(u.phone) : undefined, email: u.email ?? undefined };
+          if (u) {
+            const { phone, email } = identityFromSupabaseUser(u) ?? {};
+            const next = { phone, email };
             setUser(next);
             try {
               localStorage.setItem("mimi_demo_user", JSON.stringify(next));
